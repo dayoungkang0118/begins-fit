@@ -241,6 +241,35 @@ h3 {
   line-height: 1.55;
 }
 
+.request-contact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid #b9d7ca;
+  border-radius: 6px;
+  color: var(--ink);
+  background: #eef7f3;
+  text-decoration: none;
+}
+
+.request-contact span,
+.request-contact small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.request-contact strong {
+  color: var(--teal);
+  font-size: 17px;
+}
+
+.request-contact:hover {
+  border-color: var(--mint);
+  background: #e5f3ed;
+}
+
 .partner-badge {
   flex: 0 0 auto;
   padding: 8px 10px;
@@ -633,6 +662,38 @@ fieldset {
   line-height: 1.75;
 }
 
+.about-hero-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.call-button {
+  display: grid;
+  gap: 2px;
+  min-width: 230px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 6px;
+  color: #17201c;
+  background: #ffffff;
+  text-decoration: none;
+}
+
+.call-button span,
+.call-button small {
+  color: #52615a;
+  font-size: 12px;
+}
+
+.call-button strong {
+  font-size: 21px;
+}
+
+.call-button:hover {
+  background: #eaf5f0;
+}
+
 .about-band,
 .credential-band,
 .direct-process {
@@ -981,6 +1042,24 @@ td small {
 
   .about-hero-copy h2 {
     font-size: 36px;
+  }
+
+  .request-contact,
+  .about-hero-actions {
+    width: 100%;
+  }
+
+  .request-contact {
+    flex-wrap: wrap;
+  }
+
+  .about-hero-actions {
+    flex-direction: column;
+  }
+
+  .call-button,
+  .about-hero-actions .primary-button {
+    width: 100%;
   }
 
   .about-band,
