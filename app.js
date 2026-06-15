@@ -4,6 +4,7 @@ const ADMIN_ID = "begins";
 const ADMIN_PASSWORD = "2026";
 const DRAWING_DB_NAME = "begins-fit-drawings";
 const DRAWING_STORE_NAME = "files";
+const MAX_EMAIL_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 const GOOGLE_SHEETS_WEB_APP_URL =
   "https://script.google.com/macros/s/AKfycbz6PVd1PzAL9JK_S8i5fzWsV3S5F3ZCakP2Q_FrZilKDBM27uYU3HVsX_JStVGk8CGRPw/exec";
 
@@ -163,15 +164,36 @@ async function downloadDrawingFile(fileId) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-async function sendRequestToGoogleSheets(request) {
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result);
+      resolve(result.slice(result.indexOf(",") + 1));
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function sendRequestToGoogleSheets(request, files) {
   if (!GOOGLE_SHEETS_WEB_APP_URL) return;
+
+  const emailAttachments = await Promise.all(
+    files.map(async (file) => ({
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      base64: await readFileAsBase64(file),
+    })),
+  );
 
   const payload = {
     ...request,
     drawingFiles: (request.drawingFiles || []).map((file) => file.name),
+    emailAttachments,
   };
 
-  const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+  await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
     method: "POST",
     mode: "no-cors",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -308,7 +330,8 @@ function initRequestForm() {
     input.addEventListener("change", () => {
       const directUpload = input.checked && input.value === "직접 업로드";
       if (directUpload) {
-        fileHelp.textContent = "직접 업로드를 선택하면 도면 파일을 1개 이상 첨부해야 합니다.";
+        fileHelp.textContent =
+          "직접 업로드를 선택하면 도면 파일을 1개 이상 첨부해야 합니다. 전체 15MB 이하";
         fileInput.setAttribute("required", "");
       } else if (input.checked) {
         fileHelp.textContent = "도면은 소개 부동산에서 비긴에스로 전달합니다.";
@@ -322,9 +345,16 @@ function initRequestForm() {
     const form = new FormData(event.currentTarget);
     const request = Object.fromEntries(form.entries());
     const files = Array.from(fileInput.files);
+    const totalFileSize = files.reduce((total, file) => total + file.size, 0);
 
     if (request.drawingSource === "직접 업로드" && !files.length) {
       showToast("도면 파일을 1개 이상 첨부해주세요.");
+      fileInput.focus();
+      return;
+    }
+
+    if (totalFileSize > MAX_EMAIL_ATTACHMENT_BYTES) {
+      showToast("첨부파일 전체 용량은 15MB 이하로 올려주세요.");
       fileInput.focus();
       return;
     }
@@ -349,7 +379,7 @@ function initRequestForm() {
 
     let sheetsSynced = true;
     try {
-      await sendRequestToGoogleSheets(request);
+      await sendRequestToGoogleSheets(request, files);
     } catch {
       sheetsSynced = false;
     }
@@ -358,7 +388,7 @@ function initRequestForm() {
     event.currentTarget.reset();
     fileList.innerHTML = "";
     fileInput.removeAttribute("required");
-    fileHelp.textContent = "직접 업로드를 선택하면 도면 파일을 첨부해주세요.";
+    fileHelp.textContent = "직접 업로드를 선택하면 도면 파일을 첨부해주세요. 전체 15MB 이하";
     meetingDetail.classList.add("hidden");
     meetingCapacity.required = false;
     meetingCount.required = false;
