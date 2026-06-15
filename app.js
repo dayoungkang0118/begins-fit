@@ -296,7 +296,6 @@ function initPartnerFromUrl() {
   if (!partner) return;
 
   const decoded = decodeURIComponent(partner);
-  $("#partnerBadge").textContent = `${decoded} 소개`;
   $("#partnerNameInput").value = decoded;
 }
 
