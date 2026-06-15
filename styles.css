@@ -634,7 +634,8 @@ fieldset {
 }
 
 .about-band,
-.specialty-band {
+.credential-band,
+.direct-process {
   padding: 70px 4px;
 }
 
@@ -644,7 +645,7 @@ fieldset {
 }
 
 .section-heading h2,
-.specialty-band h2 {
+.credential-heading h2 {
   font-size: 32px;
 }
 
@@ -653,61 +654,131 @@ fieldset {
   line-height: 1.65;
 }
 
-.value-grid {
+.trust-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
 
-.value-item {
-  padding: 30px 26px;
+.trust-item {
+  min-width: 0;
+  padding: 34px 28px;
 }
 
-.value-item + .value-item {
+.trust-item + .trust-item {
   border-left: 1px solid var(--line);
 }
 
-.value-item > span {
+.trust-number {
   display: block;
-  margin-bottom: 30px;
+  margin-bottom: 38px;
   color: var(--mint);
   font-size: 13px;
   font-weight: 800;
 }
 
-.value-item h3 {
-  margin-bottom: 12px;
-  font-size: 20px;
+.trust-label {
+  margin-bottom: 9px;
+  color: var(--mint);
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.value-item p {
+.trust-item h3 {
+  margin-bottom: 12px;
+  font-size: 24px;
+}
+
+.trust-item > p:last-of-type {
   margin-bottom: 0;
   color: var(--muted);
   line-height: 1.65;
 }
 
-.specialty-band {
-  display: grid;
-  grid-template-columns: minmax(240px, 0.65fr) minmax(0, 1.35fr);
-  gap: 50px;
-  border-top: 1px solid var(--line);
+.license-number {
+  display: inline-block;
+  margin-top: 18px;
+  color: var(--ink);
+  font-size: 13px;
 }
 
-.specialty-list {
+.credential-band {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+  gap: 64px;
+  margin: 0 -34px;
+  padding-right: 38px;
+  padding-left: 38px;
+  background: #e7f1ed;
+}
+
+.credential-heading p:last-child {
+  max-width: 560px;
+  margin: 16px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.credential-facts {
   border-top: 1px solid var(--ink);
 }
 
-.specialty-list > div {
+.credential-facts > div {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: 110px minmax(0, 1fr);
   gap: 20px;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(23, 32, 28, 0.18);
 }
 
-.specialty-list span {
+.credential-facts span {
   color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.direct-process .section-heading {
+  margin-bottom: 34px;
+}
+
+.direct-process ol {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.direct-process li {
+  min-width: 0;
+  padding: 22px 18px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #72a99c;
+  text-align: center;
+}
+
+.direct-process li span,
+.direct-process li strong,
+.direct-process li p {
+  display: block;
+}
+
+.direct-process li span {
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+
+.direct-process li strong {
+  font-size: 17px;
+}
+
+.direct-process li p {
+  margin: 16px 0 0;
+  color: #eef6f3;
+  font-size: 12px;
 }
 
 .about-cta {
@@ -913,34 +984,59 @@ td small {
   }
 
   .about-band,
-  .specialty-band {
+  .credential-band,
+  .direct-process {
     padding: 48px 0;
   }
 
-  .value-grid,
-  .specialty-band {
+  .trust-grid,
+  .credential-band {
     grid-template-columns: 1fr;
   }
 
-  .value-item {
+  .trust-item {
     padding: 24px 4px;
   }
 
-  .value-item + .value-item {
+  .trust-item + .trust-item {
     border-top: 1px solid var(--line);
     border-left: 0;
   }
 
-  .value-item > span {
+  .trust-number {
     margin-bottom: 14px;
   }
 
-  .specialty-band {
+  .credential-band {
     gap: 24px;
+    margin: 0 -16px;
+    padding-right: 20px;
+    padding-left: 20px;
   }
 
-  .specialty-list > div {
+  .credential-facts > div {
     grid-template-columns: 90px minmax(0, 1fr);
+  }
+
+  .direct-process ol {
+    grid-template-columns: 1fr;
+  }
+
+  .direct-process li {
+    display: grid;
+    grid-template-columns: 62px 1fr;
+    align-items: center;
+    gap: 6px 12px;
+    text-align: left;
+  }
+
+  .direct-process li span {
+    grid-row: 1 / 3;
+    margin: 0;
+  }
+
+  .direct-process li p {
+    margin: 2px 0 0;
   }
 
   .about-cta {
