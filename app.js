@@ -4,6 +4,8 @@ const ADMIN_ID = "begins";
 const ADMIN_PASSWORD = "2026";
 const DRAWING_DB_NAME = "begins-fit-drawings";
 const DRAWING_STORE_NAME = "files";
+const GOOGLE_SHEETS_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycbz6PVd1PzAL9JK_S8i5fzWsV3S5F3ZCakP2Q_FrZilKDBM27uYU3HVsX_JStVGk8CGRPw/exec";
 
 const statusOptions = [
   "신청 접수",
@@ -22,7 +24,7 @@ const sampleRequests = [
     phone: "010-2488-1024",
     company: "에이치랩스",
     industry: "IT 소프트웨어",
-    moveIn: "2026년 8월",
+    moveIn: "2026년 8월 마지막 주",
     seatCount: "24",
     deskSize: "1400×700mm",
     property: "문정 지식산업센터 A동 1201호",
@@ -42,7 +44,7 @@ const sampleRequests = [
     phone: "010-3100-7771",
     company: "바디웍스",
     industry: "유통",
-    moveIn: "2026년 9월",
+    moveIn: "2026년 9월 둘째 주",
     seatCount: "8",
     deskSize: "1200×600mm",
     property: "가산 B타워 806호",
@@ -159,6 +161,22 @@ async function downloadDrawingFile(fileId) {
   link.download = record.name;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function sendRequestToGoogleSheets(request) {
+  if (!GOOGLE_SHEETS_WEB_APP_URL) return;
+
+  const payload = {
+    ...request,
+    drawingFiles: (request.drawingFiles || []).map((file) => file.name),
+  };
+
+  const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload),
+  });
 }
 
 function showToast(message) {
@@ -328,6 +346,14 @@ function initRequestForm() {
 
     state.requests.unshift(request);
     save();
+
+    let sheetsSynced = true;
+    try {
+      await sendRequestToGoogleSheets(request);
+    } catch {
+      sheetsSynced = false;
+    }
+
     renderAll();
     event.currentTarget.reset();
     fileList.innerHTML = "";
@@ -337,7 +363,11 @@ function initRequestForm() {
     meetingCapacity.required = false;
     meetingCount.required = false;
     initPartnerFromUrl();
-    showToast("테스트핏 신청이 접수되었습니다.");
+    showToast(
+      sheetsSynced
+        ? "테스트핏 신청이 접수되었습니다."
+        : "신청은 저장됐지만 구글시트 연동에 실패했습니다.",
+    );
   });
 }
 
