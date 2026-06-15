@@ -1,0 +1,15 @@
+# Local preview server and tunnel
+cloudflared.exe
+server.mjs
+*.log
+
+# Local editor and OS files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Dependencies and environment files
+node_modules/
+.env
+.env.*

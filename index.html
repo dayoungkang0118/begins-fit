@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>비긴핏 | 테스트핏 신청 시스템</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">B</span>
+          <div>
+            <strong>비긴핏</strong>
+            <small>오피스 테스트핏 CRM</small>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="주요 메뉴">
+          <button class="nav-item active" data-view="request">
+            <span>신청</span>
+          </button>
+          <button class="nav-item" data-view="about">
+            <span>비긴에스 소개</span>
+          </button>
+          <button class="nav-item admin-only hidden" data-view="admin">
+            <span>관리자</span>
+          </button>
+        </nav>
+
+        <div class="admin-actions">
+          <button class="ghost-button" id="adminLoginButton" type="button">관리자 로그인</button>
+          <button class="ghost-button hidden" id="adminLogoutButton" type="button">로그아웃</button>
+        </div>
+
+        <div class="sidebar-note">
+          <strong>운영 원칙</strong>
+          <p>부동산이 고객에게 링크를 전달하고, 실제 입주 고객이 직접 테스트핏을 신청합니다.</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <section class="topbar">
+          <div>
+            <p class="eyebrow">BEGIN:S OFFICE FIT</p>
+            <h1>입주 전, 공간이 맞는지 먼저 확인합니다.</h1>
+          </div>
+          <div class="status-pill">
+            <span id="requestCount">0</span>
+            <small>접수 건</small>
+          </div>
+        </section>
+
+        <section class="view active" id="requestView">
+          <div class="panel-grid">
+            <form class="panel request-form" id="requestForm">
+              <div class="panel-head">
+                <div>
+                  <h2>무료 테스트핏 신청</h2>
+                  <p>도면을 직접 첨부하거나 소개받은 부동산을 통해 전달할 수 있습니다.</p>
+                </div>
+                <span class="partner-badge" id="partnerBadge">직접 신청</span>
+              </div>
+
+              <div class="form-grid">
+                <label>
+                  <span>고객명</span>
+                  <input required name="clientName" placeholder="홍길동" />
+                </label>
+                <label>
+                  <span>연락처</span>
+                  <input required name="phone" placeholder="010-0000-0000" />
+                </label>
+                <label>
+                  <span>회사명</span>
+                  <input name="company" placeholder="주식회사 예시" />
+                </label>
+                <label>
+                  <span>회사 업종</span>
+                  <input required name="industry" placeholder="예: IT 개발, 제조, 유통, 전문서비스" />
+                </label>
+                <label>
+                  <span>입주 희망 시기</span>
+                  <input name="moveIn" placeholder="예: 2026년 8월" />
+                </label>
+                <label>
+                  <span>업무공간 좌석 수</span>
+                  <input required name="seatCount" type="number" min="1" placeholder="20" />
+                </label>
+                <label>
+                  <span>책상 크기</span>
+                  <select required name="deskSize">
+                    <option value="">선택해주세요</option>
+                    <option value="1200×600mm">1200×600mm · 컴팩트형</option>
+                    <option value="1400×700mm">1400×700mm · 일반 업무형</option>
+                    <option value="1600×800mm">1600×800mm · 넓은 업무형</option>
+                    <option value="미정">아직 정하지 못했습니다</option>
+                  </select>
+                </label>
+                <label>
+                  <span>검토 매물</span>
+                  <input required name="property" placeholder="예: 문정동 A타워 1201호" />
+                </label>
+                <label>
+                  <span>소개 부동산</span>
+                  <input name="partnerName" id="partnerNameInput" placeholder="예: A부동산 김대표" />
+                </label>
+              </div>
+
+              <fieldset class="drawing-fieldset">
+                <legend>검토 매물 도면</legend>
+                <p class="field-help">도면을 전달할 방법을 선택해주세요.</p>
+                <div class="choice-grid">
+                  <label class="choice-card">
+                    <input required type="radio" name="drawingSource" value="부동산에서 받기" />
+                    <strong>부동산에서 받기</strong>
+                    <span>소개 부동산이 비긴에스로 도면을 전달합니다.</span>
+                  </label>
+                  <label class="choice-card">
+                    <input required type="radio" name="drawingSource" value="직접 업로드" />
+                    <strong>직접 업로드</strong>
+                    <span>보유 중인 도면을 아래에서 바로 첨부합니다.</span>
+                  </label>
+                </div>
+
+                <label class="file-drop" for="drawingFiles">
+                  <strong>도면 파일 첨부</strong>
+                  <span id="fileHelp">직접 업로드를 선택하면 도면 파일을 첨부해주세요.</span>
+                  <small>PDF, DWG, DXF, JPG, PNG · 여러 파일 선택 가능</small>
+                  <input
+                    id="drawingFiles"
+                    name="drawingFiles"
+                    type="file"
+                    multiple
+                    accept=".pdf,.dwg,.dxf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                  />
+                </label>
+                <div class="file-list" id="fileList" aria-live="polite"></div>
+              </fieldset>
+
+              <fieldset>
+                <legend>필요 공간</legend>
+                <div class="check-grid">
+                  <label><input type="checkbox" name="needs" value="대표실" /> 대표실</label>
+                  <label><input id="meetingRoomCheck" type="checkbox" name="needs" value="회의실" /> 회의실</label>
+                  <label><input type="checkbox" name="needs" value="오픈 업무공간" /> 오픈 업무공간</label>
+                  <label><input type="checkbox" name="needs" value="탕비실" /> 탕비실</label>
+                  <label><input type="checkbox" name="needs" value="창고" /> 창고</label>
+                  <label><input type="checkbox" name="needs" value="폰부스" /> 폰부스</label>
+                  <label><input type="checkbox" name="needs" value="쇼룸" /> 쇼룸</label>
+                </div>
+                <div class="meeting-detail hidden" id="meetingDetail">
+                  <label>
+                    <span>회의실 규모</span>
+                    <div class="number-with-unit">
+                      <input id="meetingCapacity" name="meetingCapacity" type="number" min="2" placeholder="6" />
+                      <em>인용</em>
+                    </div>
+                  </label>
+                  <label>
+                    <span>필요 개수</span>
+                    <div class="number-with-unit">
+                      <input id="meetingCount" name="meetingCount" type="number" min="1" placeholder="2" />
+                      <em>개</em>
+                    </div>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset class="usage-fieldset">
+                <legend>우리 회사의 공간 사용 방식</legend>
+                <p class="field-help">해당하는 항목을 모두 선택해주세요. 공간 배치와 동선 계획에 반영합니다.</p>
+                <div class="usage-grid">
+                  <label><input type="checkbox" name="usageTypes" value="방문객 출입이 잦음" /> 방문객이나 외부인 출입이 잦습니다.</label>
+                  <label><input type="checkbox" name="usageTypes" value="방문객과 직원 동선 분리" /> 방문객 동선과 직원 업무공간을 분리하고 싶습니다.</label>
+                  <label><input type="checkbox" name="usageTypes" value="보안과 출입 통제 중요" /> 보안과 출입 통제가 중요합니다.</label>
+                  <label><input type="checkbox" name="usageTypes" value="오픈 오피스 선호" /> 개방형 오픈 오피스를 선호합니다.</label>
+                  <label><input type="checkbox" name="usageTypes" value="집중 업무 공간 필요" /> 집중 업무를 위한 조용한 공간이 필요합니다.</label>
+                  <label><input type="checkbox" name="usageTypes" value="온라인 회의와 통화가 잦음" /> 온라인 회의나 통화가 잦습니다.</label>
+                  <label><input type="checkbox" name="usageTypes" value="탕비실에서 식사" /> 탕비실을 식사 공간으로 사용합니다.</label>
+                  <label><input type="checkbox" name="usageTypes" value="독립적인 대표실" /> 대표실을 직원 업무공간과 독립적으로 구성하고 싶습니다.</label>
+                  <label><input type="checkbox" name="usageTypes" value="부서별 공간 구분" /> 부서별로 업무공간을 구분해야 합니다.</label>
+                  <label><input type="checkbox" name="usageTypes" value="인원 증가 고려" /> 향후 인원 증가를 고려한 여유 공간이 필요합니다.</label>
+                </div>
+              </fieldset>
+
+              <label>
+                <span>추가 요청사항</span>
+                <textarea name="memo" rows="4" placeholder="꼭 들어가야 하는 실, 좌석 수, 예산 범위 등을 적어주세요."></textarea>
+              </label>
+
+              <div class="consent-row">
+                <label><input required type="checkbox" name="consent" /> 개인정보 수집 및 테스트핏 상담 연락에 동의합니다.</label>
+              </div>
+
+              <button class="primary-button" type="submit">테스트핏 신청</button>
+            </form>
+
+            <aside class="panel process-panel">
+              <h2>진행 흐름</h2>
+              <ol class="steps">
+                <li><span>1</span><div><strong>부동산 링크 전달</strong><p>파트너별 링크로 소개 출처를 자동 기록합니다.</p></div></li>
+                <li><span>2</span><div><strong>고객 직접 신청</strong><p>실제 입주 검토 고객만 DB로 들어옵니다.</p></div></li>
+                <li><span>3</span><div><strong>도면 전달</strong><p>부동산에서 받거나 고객이 직접 업로드합니다.</p></div></li>
+                <li><span>4</span><div><strong>테스트핏 제공</strong><p>기본 1회 무료로 공간 가능성을 확인합니다.</p></div></li>
+                <li><span>5</span><div><strong>견적 전환</strong><p>테스트핏 결과 기반으로 인테리어 견적을 제안합니다.</p></div></li>
+              </ol>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="aboutView">
+          <div class="about-hero">
+            <img src="assets/begins-office-hero.png" alt="비긴에스가 설계하는 현대적인 오피스 인테리어" />
+            <div class="about-hero-copy">
+              <p class="eyebrow">BEGIN:S INTERIOR</p>
+              <h2>공간을 확인하는 순간부터<br />인테리어의 시작까지.</h2>
+              <p>
+                (주)비긴에스는 오피스에 특화된 인테리어 회사입니다.
+                단순히 예쁜 공간이 아니라 인원, 업무 방식, 동선과 예산이 실제로 작동하는 공간을 만듭니다.
+              </p>
+              <button class="primary-button compact-button" type="button" data-go-request>무료 테스트핏 신청</button>
+            </div>
+          </div>
+
+          <section class="about-band">
+            <div class="section-heading">
+              <p class="eyebrow">WHY BEGIN:S</p>
+              <h2>계약 전에 확인하고, 결정 후에는 빠르게 이어갑니다.</h2>
+              <p>테스트핏은 단순한 배치도가 아니라 입주와 인테리어 의사결정을 위한 첫 번째 검토입니다.</p>
+            </div>
+            <div class="value-grid">
+              <article class="value-item">
+                <span>01</span>
+                <h3>실제 수용 가능성</h3>
+                <p>평수만으로 판단하지 않고 좌석, 회의실, 대표실과 부대공간이 실제로 들어가는지 검토합니다.</p>
+              </article>
+              <article class="value-item">
+                <span>02</span>
+                <h3>전문 설계 관점</h3>
+                <p>오피스 시공 경험을 바탕으로 동선, 설비, 업무 방식과 확장 가능성까지 함께 생각합니다.</p>
+              </article>
+              <article class="value-item">
+                <span>03</span>
+                <h3>견적까지 한 흐름</h3>
+                <p>입주 결정 후 같은 요구사항을 다시 설명하지 않아도 테스트핏을 기반으로 견적 상담을 이어갑니다.</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="specialty-band">
+            <div>
+              <p class="eyebrow">SPECIALTY</p>
+              <h2>오피스 공간에 집중합니다.</h2>
+            </div>
+            <div class="specialty-list">
+              <div><strong>오피스</strong><span>업무공간 · 회의실 · 대표실 · 라운지 · 쇼룸</span></div>
+              <div><strong>설계 기준</strong><span>인원 · 업무 방식 · 동선 · 수납 · 확장 가능성</span></div>
+              <div><strong>전 과정</strong><span>테스트핏 · 설계 · 견적 · 시공 · 사후관리</span></div>
+            </div>
+          </section>
+
+          <section class="about-cta">
+            <div>
+              <h2>검토 중인 공간이 우리 회사에 맞는지 먼저 확인해보세요.</h2>
+              <p>도면이 없어도 신청할 수 있습니다. 확인 가능한 자료부터 비긴에스가 함께 찾아드립니다.</p>
+            </div>
+            <button class="primary-button compact-button" type="button" data-go-request>무료 테스트핏 신청</button>
+          </section>
+        </section>
+
+        <section class="view" id="adminView">
+          <div class="dashboard-grid">
+            <div class="metric">
+              <span>신규 접수</span>
+              <strong id="metricNew">0</strong>
+            </div>
+            <div class="metric">
+              <span>도면 수급</span>
+              <strong id="metricPlan">0</strong>
+            </div>
+            <div class="metric">
+              <span>견적 전환</span>
+              <strong id="metricEstimate">0</strong>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>테스트핏 요청 관리</h2>
+                <p>상태를 바꾸면 로컬 브라우저에 저장됩니다. 실제 서버 연동 전 운영 흐름 검증용입니다.</p>
+              </div>
+              <button class="secondary-button" id="seedButton" type="button">샘플 추가</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>고객</th>
+                    <th>매물</th>
+                    <th>소개 부동산</th>
+                    <th>필요 공간</th>
+                    <th>도면</th>
+                    <th>상태</th>
+                    <th>메모</th>
+                  </tr>
+                </thead>
+                <tbody id="requestTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal hidden" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+      <form class="login-card" id="adminLoginForm">
+        <div class="panel-head">
+          <div>
+            <h2 id="loginTitle">관리자 로그인</h2>
+            <p>비긴에스 내부 담당자만 관리자 화면에 접근할 수 있습니다.</p>
+          </div>
+          <button class="icon-button" id="loginCloseButton" type="button" aria-label="닫기">×</button>
+        </div>
+        <label>
+          <span>아이디</span>
+          <input required name="adminId" autocomplete="username" placeholder="아이디" />
+        </label>
+        <label>
+          <span>비밀번호</span>
+          <input required name="adminPassword" type="password" autocomplete="current-password" placeholder="비밀번호" />
+        </label>
+        <button class="primary-button" type="submit">로그인</button>
+      </form>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
