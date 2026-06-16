@@ -47,7 +47,7 @@
           </div>
           <div class="status-pill">
             <span id="requestCount">0</span>
-            <small>접수 건</small>
+            <small>누적 검토</small>
           </div>
         </section>
 
@@ -316,6 +316,187 @@
             </div>
           </div>
 
+          <div class="panel fit-calculator-panel">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">INTERNAL TEST FIT</p>
+                <h2>내부 테스트핏 계산기</h2>
+                <p>좌석 수와 주요 공간 기준으로 권장 면적과 설계 방향을 빠르게 산출합니다.</p>
+              </div>
+            </div>
+
+            <div class="calculator-layout">
+              <form class="calculator-form" id="fitCalculatorForm">
+                <label class="full-field">
+                  <span>접수 데이터 불러오기</span>
+                  <select id="fitRequestSelect">
+                    <option value="">직접 입력</option>
+                  </select>
+                </label>
+
+                <label>
+                  <span>업무공간 좌석 수</span>
+                  <input required id="fitSeatCount" type="number" min="1" value="20" />
+                </label>
+                <label>
+                  <span>책상 사이즈</span>
+                  <select required id="fitDeskSize">
+                    <option value="1200x600">1200×600mm · 컴팩트형</option>
+                    <option value="1400x700" selected>1400×700mm · 일반 업무형</option>
+                    <option value="1600x800">1600×800mm · 여유 업무형</option>
+                    <option value="1800x800">1800×800mm · 임원/대형</option>
+                  </select>
+                </label>
+                <label>
+                  <span>근무공간 밀도</span>
+                  <select id="fitDensity">
+                    <option value="compact">효율형</option>
+                    <option value="standard" selected>표준형</option>
+                    <option value="roomy">여유형</option>
+                  </select>
+                </label>
+                <label>
+                  <span>검토 매물 전용평</span>
+                  <input id="fitPropertyArea" type="number" min="1" placeholder="예: 70" />
+                </label>
+                <fieldset class="full-field compact-fieldset floor-plan-fieldset">
+                  <legend>도면 기준</legend>
+                  <p class="field-help">JPG 도면이 있으면 업로드하고, 도면이 없으면 매물의 대략적인 가로/세로 치수를 입력합니다.</p>
+                  <div class="floor-plan-grid">
+                    <label class="floor-plan-upload" for="fitFloorPlanImage">
+                      <strong>JPG 도면 업로드</strong>
+                      <span id="fitFloorPlanName">업로드된 도면 없음</span>
+                      <input id="fitFloorPlanImage" type="file" accept=".jpg,.jpeg,image/jpeg" />
+                    </label>
+                    <label>
+                      <span>매물 가로</span>
+                      <div class="number-with-unit">
+                        <input id="fitPlanWidth" type="number" min="1" step="0.1" placeholder="예: 18" />
+                        <em>m</em>
+                      </div>
+                    </label>
+                    <label>
+                      <span>매물 세로</span>
+                      <div class="number-with-unit">
+                        <input id="fitPlanDepth" type="number" min="1" step="0.1" placeholder="예: 12" />
+                        <em>m</em>
+                      </div>
+                    </label>
+                    <button class="text-button clear-floor-plan" id="clearFitFloorPlan" type="button">도면 제거</button>
+                  </div>
+                </fieldset>
+                <label>
+                  <span>회의실 규모</span>
+                  <div class="number-with-unit">
+                    <input id="fitMeetingCapacity" type="number" min="0" value="6" />
+                    <em>인용</em>
+                  </div>
+                </label>
+                <label>
+                  <span>회의실 개수</span>
+                  <div class="number-with-unit">
+                    <input id="fitMeetingCount" type="number" min="0" value="1" />
+                    <em>개</em>
+                  </div>
+                </label>
+                <label>
+                  <span>대표실</span>
+                  <select id="fitExecutiveRoom">
+                    <option value="none">없음</option>
+                    <option value="small">소형 대표실</option>
+                    <option value="standard" selected>일반 대표실</option>
+                    <option value="meeting">미팅 겸용 대표실</option>
+                  </select>
+                </label>
+                <label>
+                  <span>탕비실</span>
+                  <select id="fitPantry">
+                    <option value="simple">커피존</option>
+                    <option value="standard" selected>싱크/냉장고/수납</option>
+                    <option value="dining">식사 가능한 탕비실</option>
+                  </select>
+                </label>
+                <label>
+                  <span>수납/서버</span>
+                  <select id="fitStorage">
+                    <option value="low">적음</option>
+                    <option value="medium" selected>보통</option>
+                    <option value="high">많음</option>
+                  </select>
+                </label>
+
+                <fieldset class="full-field compact-fieldset">
+                  <legend>공간활용 타입</legend>
+                  <p class="field-help">고객이 신청서에서 작성한 사용 방식입니다. 접수 데이터를 불러오면 일부 항목이 자동 체크됩니다.</p>
+                  <div class="fit-check-grid">
+                    <label><input type="checkbox" name="fitUsage" value="visitor" /> 외부인 출입이 잦음</label>
+                    <label><input type="checkbox" name="fitUsage" value="separate" /> 방문객/직원 동선 분리</label>
+                    <label><input type="checkbox" name="fitUsage" value="security" /> 보안 중요</label>
+                    <label><input type="checkbox" name="fitUsage" value="open" /> 오픈 오피스 선호</label>
+                    <label><input type="checkbox" name="fitUsage" value="call" /> 통화/온라인 회의 잦음</label>
+                    <label><input type="checkbox" name="fitUsage" value="growth" /> 향후 인원 증가 고려</label>
+                  </div>
+                </fieldset>
+
+                <fieldset class="full-field compact-fieldset design-check-fieldset">
+                  <legend>설계실 체크표</legend>
+                  <p class="field-help">도면을 확인한 뒤 설계자가 추가로 체크합니다. 이 항목은 내부 계산과 블록플랜 메모에 반영됩니다.</p>
+                  <div class="fit-check-grid design-check-grid">
+                    <label><input type="checkbox" name="designChecks" value="frontMeeting" /> 회의실 전면 배치 유리</label>
+                    <label><input type="checkbox" name="designChecks" value="reception" /> 입구 대기/응대 필요</label>
+                    <label><input type="checkbox" name="designChecks" value="wetZone" /> 탕비 급배수 위치 우선</label>
+                    <label><input type="checkbox" name="designChecks" value="column" /> 기둥 간섭 검토 필요</label>
+                    <label><input type="checkbox" name="designChecks" value="windowSeat" /> 창가 좌석 우선 배치</label>
+                    <label><input type="checkbox" name="designChecks" value="mainAisle" /> 메인 동선 1200 권장</label>
+                    <label><input type="checkbox" name="designChecks" value="firePath" /> 피난/소방 동선 확보</label>
+                    <label><input type="checkbox" name="designChecks" value="acoustic" /> 통화 소음 분리 필요</label>
+                    <label><input type="checkbox" name="designChecks" value="secureServer" /> 서버/보안 구역 필요</label>
+                    <label><input type="checkbox" name="designChecks" value="storageWall" /> 벽면 수납장 계획</label>
+                    <label><input type="checkbox" name="designChecks" value="executivePrivacy" /> 대표실 프라이버시 중요</label>
+                    <label><input type="checkbox" name="designChecks" value="expansion" /> 증원 좌석 예비 필요</label>
+                  </div>
+                </fieldset>
+
+                <button class="secondary-button full-field" type="submit">테스트핏 기준 계산</button>
+              </form>
+
+              <div class="fit-result" id="fitResult" aria-live="polite">
+                <div class="result-hero">
+                  <span>권장 필요 면적</span>
+                  <strong id="fitTotalArea">-</strong>
+                  <small id="fitSuitability">조건을 입력하고 계산해주세요.</small>
+                </div>
+                <div class="result-grid">
+                  <div><span>업무공간</span><strong id="fitWorkArea">-</strong></div>
+                  <div><span>회의실</span><strong id="fitMeetingArea">-</strong></div>
+                  <div><span>대표실</span><strong id="fitExecutiveArea">-</strong></div>
+                  <div><span>탕비/수납</span><strong id="fitSupportArea">-</strong></div>
+                </div>
+                <div class="fit-notes">
+                  <h3>설계 메모</h3>
+                  <ul id="fitNotes">
+                    <li>계산 결과가 여기에 표시됩니다.</li>
+                  </ul>
+                </div>
+                <div class="fit-diagram-panel">
+                  <div class="diagram-head">
+                    <div>
+                      <h3>블록 플랜 초안</h3>
+                      <p>실제 도면 배치 전, 공간 비율과 동선 방향을 빠르게 확인합니다.</p>
+                    </div>
+                    <div class="diagram-actions">
+                      <button class="text-button" data-diagram-download="png" type="button">PNG</button>
+                      <button class="text-button" data-diagram-download="jpg" type="button">JPG</button>
+                      <button class="text-button" data-diagram-download="pdf" type="button">PDF</button>
+                      <button class="text-button" data-diagram-download="svg" type="button">SVG</button>
+                    </div>
+                  </div>
+                  <div class="fit-diagram" id="fitDiagram"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="panel">
             <div class="panel-head">
               <div>
@@ -374,4 +555,4 @@
     <script src="app.js"></script>
   </body>
 </html>
-<!-- deployment: about-phone-v5 -->
+<!-- deployment: public-counter-v1 -->

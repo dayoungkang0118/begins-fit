@@ -521,6 +521,17 @@ fieldset {
   background: var(--teal);
 }
 
+.text-button {
+  border: 0;
+  padding: 0;
+  color: var(--teal);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .compact-button {
   width: auto;
 }
@@ -883,6 +894,327 @@ fieldset {
   font-size: 34px;
 }
 
+.fit-calculator-panel {
+  margin-bottom: 18px;
+}
+
+.calculator-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.82fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.calculator-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.full-field {
+  grid-column: 1 / -1;
+}
+
+.compact-fieldset {
+  margin: 2px 0 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbf9;
+}
+
+.design-check-fieldset {
+  border-color: #c8d8d2;
+  background: #f1f7f4;
+}
+
+.fit-check-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fit-check-grid label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 9px 10px;
+  border: 1px solid #d5e0db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #38443f;
+  font-size: 13px;
+}
+
+.fit-check-grid label:has(input:checked) {
+  border-color: var(--mint);
+  background: #eff8f4;
+}
+
+.fit-check-grid input {
+  width: auto;
+}
+
+.design-check-grid label {
+  min-height: 42px;
+  border-color: #cdded7;
+}
+
+.design-check-grid label:has(input:checked) {
+  border-color: var(--teal);
+  background: #eaf4f2;
+}
+
+.floor-plan-fieldset {
+  background: #f4f8f6;
+}
+
+.floor-plan-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.3fr) minmax(120px, 0.7fr) minmax(120px, 0.7fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.floor-plan-upload {
+  display: grid;
+  gap: 6px;
+  min-height: 84px;
+  padding: 13px;
+  border: 1px dashed #a7b9b0;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.floor-plan-upload strong {
+  color: #38443f;
+  font-size: 13px;
+}
+
+.floor-plan-upload span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.floor-plan-upload input {
+  padding: 8px;
+}
+
+.clear-floor-plan {
+  min-height: 44px;
+  padding: 10px 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.fit-result {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 13px;
+}
+
+.result-hero {
+  padding: 20px;
+  border-radius: 8px;
+  color: #ffffff;
+  background: linear-gradient(135deg, #1e5f68, #2d8a68);
+}
+
+.result-hero span,
+.result-hero small {
+  display: block;
+}
+
+.result-hero span {
+  color: #d5eee6;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.result-hero strong {
+  display: block;
+  margin: 8px 0 6px;
+  font-size: 42px;
+  line-height: 1;
+}
+
+.result-hero small {
+  color: #edf8f4;
+  line-height: 1.45;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.result-grid div {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fbf9;
+}
+
+.result-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.result-grid strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink);
+  font-size: 22px;
+}
+
+.fit-notes {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.fit-notes h3 {
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.fit-notes ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 19px;
+  color: #38443f;
+  line-height: 1.48;
+  font-size: 14px;
+}
+
+.fit-diagram-panel {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.diagram-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.diagram-head h3 {
+  margin-bottom: 5px;
+  font-size: 16px;
+}
+
+.diagram-head p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 13px;
+}
+
+.diagram-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.fit-diagram {
+  overflow: hidden;
+  border: 1px solid #d7e2dd;
+  border-radius: 8px;
+  background: #f6faf8;
+}
+
+.fit-diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.diagram-room {
+  stroke: #ffffff;
+  stroke-width: 0.9;
+}
+
+.diagram-plan-image {
+  opacity: 0.42;
+}
+
+.diagram-plan-grid {
+  stroke: rgba(45, 138, 104, 0.18);
+  stroke-width: 0.18;
+}
+
+.diagram-overlay {
+  fill: rgba(255, 255, 255, 0.32);
+}
+
+.diagram-label {
+  fill: #17201c;
+  font-size: 3.1px;
+  font-weight: 800;
+}
+
+.diagram-small {
+  fill: #48554f;
+  font-size: 2.4px;
+}
+
+.diagram-desk {
+  fill: rgba(255, 255, 255, 0.8);
+  stroke: rgba(23, 32, 28, 0.22);
+  stroke-width: 0.25;
+}
+
+.diagram-furniture {
+  fill: rgba(255, 255, 255, 0.72);
+  stroke: rgba(23, 32, 28, 0.38);
+  stroke-width: 0.28;
+}
+
+.diagram-chair {
+  fill: rgba(23, 32, 28, 0.16);
+}
+
+.diagram-clearance {
+  fill: rgba(255, 255, 255, 0.26);
+  stroke: rgba(30, 95, 104, 0.48);
+  stroke-dasharray: 0.9 0.75;
+  stroke-width: 0.3;
+}
+
+.diagram-dimension {
+  fill: #1e5f68;
+  font-size: 2.2px;
+  font-weight: 800;
+}
+
+.diagram-aisle {
+  fill: rgba(255, 255, 255, 0.6);
+  stroke: rgba(30, 95, 104, 0.3);
+  stroke-dasharray: 1.3 1.1;
+  stroke-width: 0.35;
+}
+
+.diagram-arrow {
+  stroke: #1e5f68;
+  stroke-width: 0.5;
+  marker-end: url(#arrowHead);
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -1037,8 +1369,15 @@ td small {
   .choice-grid,
   .meeting-detail,
   .usage-grid,
-  .dashboard-grid {
+  .dashboard-grid,
+  .calculator-layout,
+  .calculator-form,
+  .fit-check-grid {
     grid-template-columns: 1fr;
+  }
+
+  .fit-result {
+    position: static;
   }
 
   h1 {
@@ -1079,6 +1418,18 @@ td small {
   .call-button,
   .about-hero-actions .primary-button {
     width: 100%;
+  }
+
+  .diagram-head {
+    flex-direction: column;
+  }
+
+  .floor-plan-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .clear-floor-plan {
+    text-align: left;
   }
 
   .about-band,
