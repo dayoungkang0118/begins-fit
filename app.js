@@ -477,6 +477,11 @@ function initFitCalculator() {
   ["#fitPlanWidth", "#fitPlanDepth"].forEach((selector) => {
     $(selector).addEventListener("input", renderFitCalculation);
   });
+  $$("#fitCalculatorForm input, #fitCalculatorForm select").forEach((control) => {
+    if (control.type === "file") return;
+    const eventName = control.tagName === "SELECT" || control.type === "checkbox" ? "change" : "input";
+    control.addEventListener(eventName, renderFitCalculation);
+  });
   $$("input[name='fitUsage'], input[name='designChecks']").forEach((input) => {
     input.addEventListener("change", renderFitCalculation);
   });
@@ -578,6 +583,7 @@ function renderFitCalculation() {
   $("#fitMeetingArea").textContent = `${roundArea(result.meetingArea)}평`;
   $("#fitExecutiveArea").textContent = `${roundArea(result.executiveArea)}평`;
   $("#fitSupportArea").textContent = `${roundArea(result.supportArea)}평`;
+  $("#fitLayoutCapacity").textContent = result.layoutCapacityText;
   $("#fitNotes").innerHTML = result.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("");
   $("#fitDiagram").innerHTML = createFitDiagram(result);
 }
@@ -596,9 +602,31 @@ function calculateFitPlan() {
   const planDepth = Number($("#fitPlanDepth").value) || 0;
   const usageTypes = $$("input[name='fitUsage']:checked").map((input) => input.value);
   const designChecks = $$("input[name='designChecks']:checked").map((input) => input.value);
+  const baseResultForLayout = {
+    seats,
+    usageTypes,
+    designChecks,
+    floorPlan: {
+      ...state.fitFloorPlan,
+      width: planWidth,
+      depth: planDepth,
+    },
+  };
+  const compactPlan = isCompactPlan(baseResultForLayout.floorPlan);
+  const rooms = compactPlan ? getCompactRoomLayout(baseResultForLayout) : getStandardRoomLayout(baseResultForLayout);
+  const seatLayout = getDeskLayoutCapacity({
+    seats,
+    x: rooms.work.x + 8,
+    y: rooms.work.y + 6,
+    maxWidth: rooms.work.width - 12,
+    maxHeight: rooms.work.height - 16,
+    compact: compactPlan,
+  });
 
   const perSeatArea = Math.max(desk.areaPerSeat + density.value, 1.65);
-  const workArea = seats * perSeatArea;
+  const missingSeats = Math.max(seats - seatLayout.visibleSeats, 0);
+  const layoutShortageArea = missingSeats * perSeatArea;
+  const workArea = seats * perSeatArea + layoutShortageArea;
   const meetingArea = getMeetingArea(meetingCapacity) * meetingCount;
   const executiveArea = executive.area;
   const phoneBoothArea =
@@ -628,6 +656,8 @@ function calculateFitPlan() {
     pantryLabel: pantry.label,
     storageLabel: storage.label,
     designChecks,
+    layoutCapacity: seatLayout.visibleSeats,
+    layoutCapacityText: seatLayout.visibleSeats >= seats ? `${seats}석 배치 가능` : `${seatLayout.visibleSeats}/${seats}석`,
     floorPlan: {
       ...state.fitFloorPlan,
       width: planWidth,
@@ -652,6 +682,9 @@ function calculateFitPlan() {
       totalArea,
       usageTypes,
       designChecks,
+      layoutCapacity: seatLayout.visibleSeats,
+      missingSeats,
+      layoutShortageArea,
     }),
   };
 }
@@ -741,6 +774,13 @@ function buildFitNotes(inputs) {
   if (inputs.designChecks.includes("expansion")) {
     notes.push("설계실 체크: 증원 좌석 예비를 위해 전체 필요 면적에 약 10% 여유를 반영했습니다.");
   }
+  if (inputs.missingSeats > 0) {
+    notes.push(
+      `블록플랜 검증: 현재 배치 프레임에서는 ${inputs.layoutCapacity}석까지 표시되어 ${inputs.missingSeats}석이 부족합니다. 권장 필요 면적에 약 ${roundArea(inputs.layoutShortageArea)}평을 추가 반영했습니다.`,
+    );
+  } else {
+    notes.push(`블록플랜 검증: 현재 배치 프레임에서 요청 좌석 ${inputs.seats}석이 들어가는 것으로 계산했습니다.`);
+  }
   if (inputs.propertyArea) {
     notes.push(`전용 ${inputs.propertyArea}평 매물은 도면상 기둥, 코어 위치, 창면 길이를 확인한 뒤 최종 가능 좌석을 조정합니다.`);
   }
@@ -762,28 +802,10 @@ function roundArea(value) {
 function createFitDiagram(result) {
   const planBackground = createPlanBackground(result.floorPlan);
   const seatsToDraw = Math.min(result.seats, 48);
-  const deskColumns = Math.min(Math.max(Math.ceil(Math.sqrt(seatsToDraw * 1.6)), 4), 8);
-  const deskWidth = 4.4;
-  const deskHeight = 2.5;
-  const deskGapX = 1.2;
-  const deskGapY = 1.35;
-  const deskStartX = 10;
-  const deskStartY = 33;
-  const deskElements = Array.from({ length: seatsToDraw }, (_, index) => {
-    const column = index % deskColumns;
-    const row = Math.floor(index / deskColumns);
-    const x = deskStartX + column * (deskWidth + deskGapX);
-    const y = deskStartY + row * (deskHeight + deskGapY);
-    if (y > 61) return "";
-    return `
-      <rect class="diagram-clearance" x="${x - 0.7}" y="${y - 0.7}" width="${deskWidth + 1.4}" height="${deskHeight + 1.4}" rx="0.45" />
-      <rect class="diagram-desk" x="${x}" y="${y}" width="${deskWidth}" height="${deskHeight}" rx="0.35" />
-    `;
-  }).join("");
-
   const meetingLabel = result.meetingCount
     ? `${result.meetingCapacity}인 x ${result.meetingCount}`
     : "필요 시";
+  const meetingRoomName = result.meetingCapacity ? `${result.meetingCapacity}인회의실` : "회의실";
   const executiveLabel = result.executiveArea > 0 ? roundArea(result.executiveArea) : "없음";
   const hasVisitorFlow =
     result.usageTypes.includes("visitor") ||
@@ -799,8 +821,16 @@ function createFitDiagram(result) {
   const storageText = result.designChecks.includes("storageWall") ? "벽면 수납 D400 · 동선 900+" : "수납장 D400 · 동선 900+";
   const designBadge = getDesignBadgeText(result.designChecks);
   const meetingFurniture = getMeetingFurniture(result.meetingCapacity);
-  const meetingChairs = createMeetingChairs(33, 9.2, meetingFurniture);
-
+  const compactPlan = isCompactPlan(result.floorPlan);
+  const rooms = compactPlan ? getCompactRoomLayout(result) : getStandardRoomLayout(result);
+  const deskElements = createDeskRows({
+    seats: seatsToDraw,
+    x: rooms.work.x + 8,
+    y: rooms.work.y + 6,
+    maxWidth: rooms.work.width - 12,
+    maxHeight: rooms.work.height - 16,
+    compact: compactPlan,
+  });
   return `
     <svg viewBox="0 0 100 72" role="img" aria-label="내부 테스트핏 블록 플랜 초안">
       <defs>
@@ -811,54 +841,252 @@ function createFitDiagram(result) {
       <rect x="2" y="2" width="96" height="68" rx="2.2" fill="#ffffff" stroke="#93aaa0" stroke-width="0.7"></rect>
       ${planBackground}
 
-      <rect class="diagram-room" x="5" y="5" width="19" height="14" rx="1.2" fill="#d7e9e0"></rect>
-      <text class="diagram-label" x="8" y="11">ENTRANCE</text>
-      <text class="diagram-small" x="8" y="15">${hasVisitorFlow ? "방문객 동선" : "출입/대기"}</text>
+      <rect class="diagram-zone-fill" x="${rooms.entry.x}" y="${rooms.entry.y}" width="${rooms.entry.width}" height="${rooms.entry.height}" fill="#d7e9e0"></rect>
+      <rect class="diagram-zone-fill" x="${rooms.meeting.x}" y="${rooms.meeting.y}" width="${rooms.meeting.width}" height="${rooms.meeting.height}" fill="#c8dedf"></rect>
+      <rect class="diagram-zone-fill" x="${rooms.executive.x}" y="${rooms.executive.y}" width="${rooms.executive.width}" height="${rooms.executive.height}" fill="#e9ded0"></rect>
+      <rect class="diagram-zone-fill" x="${rooms.work.x}" y="${rooms.work.y}" width="${rooms.work.width}" height="${rooms.work.height}" fill="#a8cfc0"></rect>
+      <rect class="diagram-zone-fill" x="${rooms.pantry.x}" y="${rooms.pantry.y}" width="${rooms.pantry.width}" height="${rooms.pantry.height}" fill="#f0d99f"></rect>
+      <rect class="diagram-zone-fill" x="${rooms.storage.x}" y="${rooms.storage.y}" width="${rooms.storage.width}" height="${rooms.storage.height}" fill="#d8d2e7"></rect>
 
-      <rect class="diagram-room" x="26" y="5" width="31" height="14" rx="1.2" fill="#c8dedf"></rect>
-      <text class="diagram-label" x="30" y="11">MEETING</text>
-      <rect class="diagram-clearance" x="30" y="7.1" width="22" height="9.2" rx="0.8" />
-      <rect class="diagram-furniture" x="36" y="9" width="${meetingFurniture.tableWidth}" height="${meetingFurniture.tableHeight}" rx="0.55" />
-      ${meetingChairs}
-      <text class="diagram-small" x="30" y="16.8">${meetingLabel} · ${meetingFurniture.label}</text>
-      <text class="diagram-dimension" x="45" y="7">뒤 동선 1000+</text>
+      ${createWallRoom(rooms.meeting)}
+      ${createWallRoom(rooms.executive)}
+      ${createWallRoom(rooms.work)}
+      ${createWallRoom(rooms.pantry)}
+      ${createCorePartitionLines(rooms)}
 
-      <rect class="diagram-room" x="59" y="5" width="36" height="14" rx="1.2" fill="#e9ded0"></rect>
-      <text class="diagram-label" x="63" y="11">EXECUTIVE</text>
-      <rect class="diagram-furniture" x="64" y="12.5" width="9" height="3" rx="0.45" />
-      <rect class="diagram-clearance" x="63" y="11.5" width="11" height="5.2" rx="0.5" />
-      <text class="diagram-small" x="76" y="15">${result.executiveLabel} · ${executiveLabel}평</text>
+      ${createDoubleDoor(rooms.entry.x, rooms.entry.y + rooms.entry.height, rooms.entry.width)}
+      ${createDoorForRoom(rooms.executive)}
+      ${createDoorForRoom(rooms.meeting)}
+      ${createDoorForRoom(rooms.pantry)}
+      <text class="diagram-small" x="${rooms.entry.x + 1.7}" y="${rooms.entry.y + rooms.entry.height - 1.2}">출입문</text>
 
-      <rect class="diagram-room" x="5" y="22" width="61" height="43" rx="1.4" fill="#a8cfc0"></rect>
-      <text class="diagram-label" x="9" y="28">OPEN WORK AREA</text>
-      <text class="diagram-small" x="9" y="31">${growthText} · ${roundArea(result.workArea)}평</text>
-      <rect class="diagram-aisle" x="8" y="54.5" width="55" height="5.6" rx="0.7"></rect>
-      <text class="diagram-dimension" x="10" y="58">좌석 후면/보조 동선 1000 이상</text>
+      <text class="diagram-label" x="${rooms.executive.x + rooms.executive.width * 0.34}" y="${rooms.executive.y + rooms.executive.height * 0.62}">대표실</text>
+      ${createExecutiveFurniture(rooms.executive)}
+
+      <text class="diagram-label" x="${rooms.meeting.x + rooms.meeting.width * 0.24}" y="${rooms.meeting.y + rooms.meeting.height - 5}">${meetingRoomName}</text>
+      ${createMeetingFurniture(rooms.meeting, meetingFurniture)}
+
       ${deskElements}
 
-      <rect class="diagram-aisle" x="68" y="22" width="7" height="43" rx="1"></rect>
-      <text class="diagram-small" x="69.2" y="40" transform="rotate(90 69.2 40)">${mainAisleText}</text>
+      ${createStorageFurniture(rooms.storage)}
 
-      <rect class="diagram-room" x="77" y="22" width="18" height="17" rx="1.2" fill="#f0d99f"></rect>
-      <text class="diagram-label" x="80" y="29">PANTRY</text>
-      <rect class="diagram-furniture" x="79" y="31.5" width="13.8" height="3.6" rx="0.4" />
-      <rect class="diagram-furniture" x="80" y="27.7" width="4.4" height="2.6" rx="0.35" />
-      <rect class="diagram-clearance" x="79" y="35.5" width="13.8" height="2.8" rx="0.35" />
-      <text class="diagram-small" x="80" y="37.8">${pantryText}</text>
+      ${createPantryFurniture(rooms.pantry, pantryText)}
 
-      <rect class="diagram-room" x="77" y="41" width="18" height="17" rx="1.2" fill="#d8d2e7"></rect>
-      <text class="diagram-label" x="80" y="48">STORAGE</text>
-      <rect class="diagram-furniture" x="79" y="51" width="13.8" height="2.4" rx="0.25" />
-      <rect class="diagram-clearance" x="79" y="53.9" width="13.8" height="3.1" rx="0.35" />
-      <text class="diagram-small" x="80" y="56">${storageText}</text>
+      <line class="diagram-arrow" x1="${rooms.entry.x + rooms.entry.width}" y1="${rooms.entry.y + rooms.entry.height - 4}" x2="${rooms.meeting.x}" y2="${rooms.meeting.y + rooms.meeting.height - 4}"></line>
+      <line class="diagram-arrow" x1="${rooms.aisle.x + rooms.aisle.width / 2}" y1="${rooms.aisle.y + 2}" x2="${rooms.aisle.x + rooms.aisle.width / 2}" y2="${rooms.aisle.y + rooms.aisle.height - 4}"></line>
 
-      <line class="diagram-arrow" x1="14" y1="20" x2="14" y2="54"></line>
-      <line class="diagram-arrow" x1="24" y1="12" x2="55" y2="12"></line>
-      <line class="diagram-arrow" x1="66" y1="42" x2="76" y2="42"></line>
-
-      <text class="diagram-small" x="5" y="69">면적 기준: 약 ${result.rangeLow}~${result.rangeHigh}평 / ${securityText}${designBadge}</text>
+      <text class="diagram-small" x="5" y="69">면적 기준: 약 ${result.rangeLow}~${result.rangeHigh}평 / 좌석 뒤 2000 · 옆 1000 / ${meetingLabel} / ${securityText}${designBadge}</text>
     </svg>
   `;
+}
+
+function isCompactPlan(floorPlan) {
+  const width = Number(floorPlan?.width) || 0;
+  const depth = Number(floorPlan?.depth) || 0;
+  return width > 0 && depth > 0 && width <= 5 && depth <= 4;
+}
+
+function getStandardRoomLayout(result) {
+  const entry = getBottomEntryRoom(10);
+  const options = getLayoutOptions(result);
+  if (options.frontMeeting) {
+    return {
+      entry,
+      meeting: { x: 5, y: 42, width: 26, height: 23, door: "right" },
+      executive: options.executivePrivate
+        ? { x: 69, y: 5, width: 26, height: 18, door: "bottom" }
+        : { x: 5, y: 5, width: 26, height: 24, door: "right" },
+      work: { x: 31, y: 5, width: 64, height: 43 },
+      aisle: { x: 44, y: 52, width: 16, height: 7 },
+      pantry: options.wetZone
+        ? { x: 66, y: 48, width: 29, height: 17, door: "left" }
+        : { x: 66, y: 5, width: 29, height: 15, door: "bottom" },
+      storage: options.storageWall ? { x: 37, y: 49, width: 24, height: 4 } : { x: 39, y: 50, width: 16, height: 4 },
+    };
+  }
+  if (options.executivePrivate) {
+    return {
+      entry,
+      meeting: { x: 5, y: 34, width: 26, height: 31, door: "right" },
+      executive: { x: 69, y: 5, width: 26, height: 20, door: "bottom" },
+      work: { x: 31, y: 5, width: 64, height: 43 },
+      aisle: { x: 56, y: 50, width: 10, height: 8 },
+      pantry: { x: 64, y: 48, width: 31, height: 17, door: "left" },
+      storage: { x: 37, y: 49, width: 16, height: 5 },
+    };
+  }
+  return {
+    entry,
+    meeting: { x: 5, y: 30, width: 26, height: 35, door: "right" },
+    executive: { x: 5, y: 5, width: 26, height: 25, door: "right" },
+    work: { x: 31, y: 5, width: 64, height: 54 },
+    aisle: { x: 56, y: 50, width: 10, height: 8 },
+    pantry: { x: 64, y: 48, width: 31, height: 17, door: "left" },
+    storage: { x: 37, y: 49, width: 16, height: 5 },
+  };
+}
+
+function getCompactRoomLayout(result) {
+  const entry = getBottomEntryRoom(9);
+  const layout = getStandardRoomLayout(result);
+  return {
+    ...layout,
+    entry,
+  };
+}
+
+function getLayoutOptions(result) {
+  return {
+    frontMeeting:
+      result.usageTypes.includes("visitor") ||
+      result.usageTypes.includes("separate") ||
+      result.designChecks.includes("frontMeeting") ||
+      result.designChecks.includes("reception"),
+    wetZone: result.designChecks.includes("wetZone"),
+    executivePrivate: result.designChecks.includes("executivePrivacy") || result.usageTypes.includes("security"),
+    storageWall: result.designChecks.includes("storageWall") || result.designChecks.includes("secureServer"),
+  };
+}
+
+function getBottomEntryRoom(width) {
+  return {
+    x: 50 - width / 2,
+    y: 59,
+    width,
+    height: 7,
+  };
+}
+
+function createWallRoom(room) {
+  return `<rect class="diagram-room" x="${room.x}" y="${room.y}" width="${room.width}" height="${room.height}"></rect>`;
+}
+
+function createCorePartitionLines(rooms) {
+  return `
+    <line class="diagram-partition" x1="${rooms.executive.x + rooms.executive.width}" y1="${rooms.executive.y}" x2="${rooms.executive.x + rooms.executive.width}" y2="${rooms.meeting.y + rooms.meeting.height}"></line>
+    <line class="diagram-partition" x1="${rooms.executive.x}" y1="${rooms.meeting.y}" x2="${rooms.executive.x + rooms.executive.width}" y2="${rooms.meeting.y}"></line>
+    <line class="diagram-partition" x1="${rooms.work.x}" y1="${rooms.work.y}" x2="${rooms.work.x}" y2="${rooms.work.y + rooms.work.height}"></line>
+    <line class="diagram-partition" x1="${rooms.pantry.x}" y1="${rooms.pantry.y}" x2="${rooms.pantry.x}" y2="${rooms.pantry.y + rooms.pantry.height}"></line>
+  `;
+}
+
+function createDoor(x, y, direction) {
+  if (direction === "down") {
+    return `
+      <line class="diagram-door" x1="${x}" y1="${y}" x2="${x + 4.2}" y2="${y}"></line>
+      <path class="diagram-swing" d="M ${x} ${y} A 4.2 4.2 0 0 1 ${x + 4.2} ${y - 4.2}"></path>
+    `;
+  }
+  return `
+    <line class="diagram-door" x1="${x}" y1="${y}" x2="${x}" y2="${y + 4.2}"></line>
+    <path class="diagram-swing" d="M ${x} ${y} A 4.2 4.2 0 0 0 ${x + 4.2} ${y + 4.2}"></path>
+  `;
+}
+
+function createDoorForRoom(room) {
+  if (room.door === "bottom") return createDoor(room.x + 3, room.y + room.height, "down");
+  if (room.door === "left") return createDoor(room.x, room.y + 4, "left");
+  if (room.door === "top") return createDoor(room.x + 3, room.y, "down");
+  return createDoor(room.x + room.width, room.y + Math.max(2, room.height - 8), "right");
+}
+
+function createDoubleDoor(x, y, width) {
+  const center = x + width / 2;
+  return `
+    <line class="diagram-door" x1="${center - 4.8}" y1="${y}" x2="${center - 4.8}" y2="${y - 5.6}"></line>
+    <line class="diagram-door" x1="${center + 4.8}" y1="${y}" x2="${center + 4.8}" y2="${y - 5.6}"></line>
+    <path class="diagram-swing" d="M ${center - 4.8} ${y} L ${center} ${y - 5.6} L ${center + 4.8} ${y}"></path>
+  `;
+}
+
+function createExecutiveFurniture(room) {
+  const deskX = room.x + 1.4;
+  const deskY = room.y + Math.max(5.5, room.height * 0.42);
+  return `
+    <rect class="diagram-furniture" x="${deskX}" y="${deskY}" width="${Math.min(10, room.width - 5)}" height="2.8" rx="0.1" />
+    <circle class="diagram-chair" cx="${deskX + 4.5}" cy="${deskY - 2.2}" r="1.35"></circle>
+  `;
+}
+
+function createMeetingFurniture(room, furniture) {
+  const vertical = room.height > room.width;
+  const tableWidth = Math.min(vertical ? furniture.tableDepth : furniture.tableLength, room.width - 10);
+  const tableHeight = Math.min(vertical ? furniture.tableLength : furniture.tableDepth, room.height - 12);
+  const tableX = room.x + (room.width - tableWidth) / 2;
+  const tableY = room.y + Math.max(6, (room.height - tableHeight) / 2);
+  return `
+    <rect class="diagram-furniture" x="${tableX}" y="${tableY}" width="${tableWidth}" height="${tableHeight}" rx="0.15" />
+    ${createMeetingChairs(tableX, tableY, { ...furniture, tableWidth, tableHeight, vertical })}
+    <text class="diagram-small" x="${room.x + 2}" y="${room.y + room.height - 2.2}">${furniture.label}</text>
+  `;
+}
+
+function createPantryFurniture(room, label) {
+  const counterHeight = 3.2;
+  const counterY = room.y + 0.8;
+  return `
+    <rect class="diagram-counter" x="${room.x}" y="${counterY}" width="${room.width}" height="${counterHeight}" rx="0.1" />
+    <rect class="diagram-furniture" x="${room.x + 1.8}" y="${counterY + 0.45}" width="3.4" height="2.15" rx="0.2" />
+    <text class="diagram-label" x="${room.x + room.width * 0.38}" y="${counterY + 2.55}">수납장</text>
+    <text class="diagram-label" x="${room.x + room.width * 0.34}" y="${room.y + room.height * 0.76}">탕비실</text>
+    <text class="diagram-small" x="${room.x + 2}" y="${room.y + room.height - 1.6}">${label}</text>
+  `;
+}
+
+function createStorageFurniture(room) {
+  return `
+    <rect class="diagram-counter" x="${room.x}" y="${room.y}" width="${room.width}" height="${room.height}" rx="0.1" />
+    <text class="diagram-label" x="${room.x + room.width * 0.42}" y="${room.y + room.height * 0.65}">oa</text>
+  `;
+}
+
+function createWindowLine(x, y, width) {
+  return `
+    <line class="diagram-window" x1="${x}" y1="${y - 0.7}" x2="${x + width}" y2="${y - 0.7}"></line>
+    <line class="diagram-window" x1="${x}" y1="${y - 1.25}" x2="${x + width}" y2="${y - 1.25}"></line>
+  `;
+}
+
+function createDeskRows({ seats, x, y, maxWidth, maxHeight, compact }) {
+  const layout = getDeskLayoutCapacity({ seats, x, y, maxWidth, maxHeight, compact });
+  const { clusterWidth, clusterHeight, gapX, gapY, columns, clusterCount, visibleSeats } = layout;
+  const desks = Array.from({ length: clusterCount }, (_, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const deskX = x + column * (clusterWidth + gapX);
+    const deskY = y + row * (clusterHeight + gapY);
+    return `
+      <rect class="diagram-clearance" x="${deskX - gapX / 2}" y="${deskY - gapY / 2}" width="${clusterWidth + gapX}" height="${clusterHeight + gapY}" rx="0.25" />
+      <rect class="diagram-desk" x="${deskX}" y="${deskY}" width="${clusterWidth / 2}" height="${clusterHeight / 2}" rx="0.1" />
+      <rect class="diagram-desk" x="${deskX + clusterWidth / 2}" y="${deskY}" width="${clusterWidth / 2}" height="${clusterHeight / 2}" rx="0.1" />
+      <rect class="diagram-desk" x="${deskX}" y="${deskY + clusterHeight / 2}" width="${clusterWidth / 2}" height="${clusterHeight / 2}" rx="0.1" />
+      <rect class="diagram-desk" x="${deskX + clusterWidth / 2}" y="${deskY + clusterHeight / 2}" width="${clusterWidth / 2}" height="${clusterHeight / 2}" rx="0.1" />
+      <line class="diagram-partition" x1="${deskX + clusterWidth / 2}" y1="${deskY}" x2="${deskX + clusterWidth / 2}" y2="${deskY + clusterHeight}"></line>
+      <line class="diagram-partition" x1="${deskX}" y1="${deskY + clusterHeight / 2}" x2="${deskX + clusterWidth}" y2="${deskY + clusterHeight / 2}"></line>
+      <circle class="diagram-chair" cx="${deskX - 2.2}" cy="${deskY + clusterHeight * 0.25}" r="1.35"></circle>
+      <circle class="diagram-chair" cx="${deskX - 2.2}" cy="${deskY + clusterHeight * 0.75}" r="1.35"></circle>
+      <circle class="diagram-chair" cx="${deskX + clusterWidth + 2.2}" cy="${deskY + clusterHeight * 0.25}" r="1.35"></circle>
+      <circle class="diagram-chair" cx="${deskX + clusterWidth + 2.2}" cy="${deskY + clusterHeight * 0.75}" r="1.35"></circle>
+    `;
+  }).join("");
+  const overflowLabel =
+    visibleSeats < seats
+      ? `<text class="diagram-small" x="${x}" y="${y + maxHeight + 2.2}">표시 ${visibleSeats}석 / 요청 ${seats}석 - 면적 추가 필요</text>`
+      : `<text class="diagram-small" x="${x}" y="${y + maxHeight + 2.2}">업무좌석 ${seats}석</text>`;
+  const guideLabel = `<text class="diagram-small" x="${x}" y="${y - 1.4}">책상 옆 1000 / 등뒤 2000 기준</text>`;
+  return guideLabel + desks + overflowLabel;
+}
+
+function getDeskLayoutCapacity({ seats, maxWidth, maxHeight, compact }) {
+  const clusterWidth = compact ? 6.2 : 6.8;
+  const clusterHeight = compact ? 10.5 : 11.2;
+  const gapX = compact ? 3.6 : 4.2;
+  const gapY = compact ? 7.2 : 8.2;
+  const columns = Math.max(1, Math.floor((maxWidth + gapX) / (clusterWidth + gapX)));
+  const rows = Math.max(1, Math.floor((maxHeight + gapY) / (clusterHeight + gapY)));
+  const clusterCount = Math.min(Math.ceil(seats / 4), columns * rows);
+  const visibleSeats = clusterCount * 4;
+  return { clusterWidth, clusterHeight, gapX, gapY, columns, rows, clusterCount, visibleSeats };
 }
 
 function getDesignBadgeText(designChecks) {
@@ -930,28 +1158,38 @@ function getPlanFrameByRatio(ratio) {
 }
 
 function getMeetingFurniture(capacity) {
-  if (!capacity || capacity <= 4) return { label: "W1400 회의테이블", tableWidth: 8, tableHeight: 3.2, chairs: 4 };
-  if (capacity <= 6) return { label: "W1800 회의테이블", tableWidth: 10, tableHeight: 3.5, chairs: 6 };
-  if (capacity <= 8) return { label: "W2400 회의테이블", tableWidth: 12, tableHeight: 3.7, chairs: 8 };
-  if (capacity <= 10) return { label: "W3000 회의테이블", tableWidth: 14, tableHeight: 3.9, chairs: 10 };
-  return { label: "W3600+ 회의테이블", tableWidth: 15, tableHeight: 4.1, chairs: 12 };
+  if (!capacity || capacity <= 4) return { label: "1800×700", tableLength: 9, tableDepth: 3.5, chairs: 4 };
+  if (capacity <= 6) return { label: "2200×800", tableLength: 11, tableDepth: 4, chairs: 6 };
+  if (capacity <= 8) return { label: "2800×800", tableLength: 14, tableDepth: 4, chairs: 8 };
+  if (capacity <= 10) return { label: "3200×900", tableLength: 16, tableDepth: 4.5, chairs: 10 };
+  return { label: "3600×1000", tableLength: 18, tableDepth: 5, chairs: 12 };
 }
 
 function createMeetingChairs(tableX, tableY, furniture) {
   const chairs = Math.min(furniture.chairs, 12);
-  const topCount = Math.ceil(chairs / 2);
-  const bottomCount = chairs - topCount;
-  const chairWidth = 1.25;
-  const chairHeight = 0.8;
-  const topChairs = Array.from({ length: topCount }, (_, index) => {
-    const x = tableX + 1 + index * ((furniture.tableWidth - 2) / Math.max(topCount - 1, 1));
-    return `<rect class="diagram-chair" x="${x}" y="${tableY - 1.3}" width="${chairWidth}" height="${chairHeight}" rx="0.2" />`;
+  const sideCount = Math.ceil(chairs / 2);
+  const otherSideCount = chairs - sideCount;
+  if (furniture.vertical) {
+    const left = Array.from({ length: sideCount }, (_, index) => {
+      const y = tableY + 1.2 + index * ((furniture.tableHeight - 2.4) / Math.max(sideCount - 1, 1));
+      return `<circle class="diagram-chair" cx="${tableX - 2.1}" cy="${y}" r="1.15"></circle>`;
+    }).join("");
+    const right = Array.from({ length: otherSideCount }, (_, index) => {
+      const y = tableY + 1.2 + index * ((furniture.tableHeight - 2.4) / Math.max(otherSideCount - 1, 1));
+      return `<circle class="diagram-chair" cx="${tableX + furniture.tableWidth + 2.1}" cy="${y}" r="1.15"></circle>`;
+    }).join("");
+    return left + right;
+  }
+
+  const top = Array.from({ length: sideCount }, (_, index) => {
+    const x = tableX + 1.2 + index * ((furniture.tableWidth - 2.4) / Math.max(sideCount - 1, 1));
+    return `<circle class="diagram-chair" cx="${x}" cy="${tableY - 2.1}" r="1.15"></circle>`;
   }).join("");
-  const bottomChairs = Array.from({ length: bottomCount }, (_, index) => {
-    const x = tableX + 1 + index * ((furniture.tableWidth - 2) / Math.max(bottomCount - 1, 1));
-    return `<rect class="diagram-chair" x="${x}" y="${tableY + furniture.tableHeight + 0.5}" width="${chairWidth}" height="${chairHeight}" rx="0.2" />`;
+  const bottom = Array.from({ length: otherSideCount }, (_, index) => {
+    const x = tableX + 1.2 + index * ((furniture.tableWidth - 2.4) / Math.max(otherSideCount - 1, 1));
+    return `<circle class="diagram-chair" cx="${x}" cy="${tableY + furniture.tableHeight + 2.1}" r="1.15"></circle>`;
   }).join("");
-  return topChairs + bottomChairs;
+  return top + bottom;
 }
 
 async function downloadFitDiagram(format = "svg") {
@@ -997,19 +1235,26 @@ function serializeDiagramSvg(svg) {
   clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
   const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
   style.textContent = `
-    .diagram-room{stroke:#fff;stroke-width:.9}
+    .diagram-room{fill:#fff;stroke:#000;stroke-width:.5}
+    .diagram-zone-fill{opacity:0}
+    .diagram-wall{fill:none;stroke:#000;stroke-width:.7;stroke-linecap:square}
+    .diagram-partition{fill:none;stroke:#000;stroke-width:.5}
+    .diagram-door{fill:none;stroke:#000;stroke-width:.48}
+    .diagram-swing{fill:none;stroke:#000;stroke-dasharray:.8 .55;stroke-width:.42}
+    .diagram-window{stroke:#3b9fbd;stroke-width:.42}
     .diagram-plan-image{opacity:.42}
     .diagram-plan-grid{stroke:rgba(45,138,104,.18);stroke-width:.18}
     .diagram-overlay{fill:rgba(255,255,255,.32)}
-    .diagram-label{fill:#17201c;font-size:3.1px;font-weight:800;font-family:Arial,sans-serif}
-    .diagram-small{fill:#48554f;font-size:2.4px;font-family:Arial,sans-serif}
-    .diagram-desk{fill:rgba(255,255,255,.8);stroke:rgba(23,32,28,.22);stroke-width:.25}
-    .diagram-furniture{fill:rgba(255,255,255,.72);stroke:rgba(23,32,28,.38);stroke-width:.28}
-    .diagram-chair{fill:rgba(23,32,28,.16)}
-    .diagram-clearance{fill:rgba(255,255,255,.26);stroke:rgba(30,95,104,.48);stroke-dasharray:.9 .75;stroke-width:.3}
-    .diagram-dimension{fill:#1e5f68;font-size:2.2px;font-weight:800;font-family:Arial,sans-serif}
-    .diagram-aisle{fill:rgba(255,255,255,.6);stroke:rgba(30,95,104,.3);stroke-dasharray:1.3 1.1;stroke-width:.35}
-    .diagram-arrow{stroke:#1e5f68;stroke-width:.5;marker-end:url(#arrowHead)}
+    .diagram-label{fill:#000;font-size:3.7px;font-weight:400;font-family:Batang,serif}
+    .diagram-small{fill:#000;font-size:2.55px;font-family:Batang,serif}
+    .diagram-desk{fill:#b88484;stroke:#000;stroke-width:.38}
+    .diagram-furniture{fill:#b88484;stroke:#000;stroke-width:.38}
+    .diagram-counter{fill:#a8d8e4;stroke:#000;stroke-width:.4}
+    .diagram-chair{fill:#b88484;stroke:#000;stroke-width:.34}
+    .diagram-clearance{fill:transparent;stroke:transparent;stroke-width:0}
+    .diagram-dimension{fill:#000;font-size:2.2px;font-weight:800;font-family:Arial,sans-serif}
+    .diagram-aisle{fill:transparent;stroke:transparent;stroke-width:0}
+    .diagram-arrow{stroke:transparent;stroke-width:0}
   `;
   clone.insertBefore(style, clone.firstChild);
   return new XMLSerializer().serializeToString(clone);
