@@ -348,11 +348,53 @@
                   </select>
                 </label>
                 <label>
+                  <span>책상 뒤 동선</span>
+                  <select id="fitDeskBackAisle">
+                    <option value="1000" selected>기본 1000mm</option>
+                    <option value="900">타이트 900mm</option>
+                    <option value="1100">여유 1100mm</option>
+                    <option value="1200">넓게 1200mm</option>
+                  </select>
+                </label>
+                <label>
                   <span>근무공간 밀도</span>
                   <select id="fitDensity">
                     <option value="compact">효율형</option>
                     <option value="standard" selected>표준형</option>
                     <option value="roomy">여유형</option>
+                  </select>
+                </label>
+                <label>
+                  <span>레이아웃 타입</span>
+                  <select id="fitLayoutType">
+                    <option value="general" selected>일반형</option>
+                    <option value="communication">소통형</option>
+                    <option value="independent">독립형</option>
+                    <option value="visitor_heavy">외부인 방문 많은형</option>
+                  </select>
+                </label>
+                <label>
+                  <span>채광 우선순위</span>
+                  <select id="fitDaylightPriority">
+                    <option value="balanced" selected>균형형</option>
+                    <option value="ceo_room_first">대표실 창가 우선</option>
+                    <option value="employee_first">직원 채광 우선</option>
+                  </select>
+                </label>
+                <label>
+                  <span>회의 빈도</span>
+                  <select id="fitMeetingFrequency">
+                    <option value="low">회의 적음</option>
+                    <option value="medium" selected>회의 보통</option>
+                    <option value="high">회의 많음</option>
+                  </select>
+                </label>
+                <label>
+                  <span>외부인 방문 빈도</span>
+                  <select id="fitVisitorFrequency">
+                    <option value="low">낮음</option>
+                    <option value="medium" selected>보통</option>
+                    <option value="high">높음</option>
                   </select>
                 </label>
                 <label>
@@ -383,6 +425,43 @@
                       </div>
                     </label>
                     <button class="text-button clear-floor-plan" id="clearFitFloorPlan" type="button">도면 제거</button>
+                  </div>
+                  <div class="site-marker-grid">
+                    <label>
+                      <span>출입구 위치</span>
+                      <select id="fitEntryPosition">
+                        <option value="bottom" selected>하단 중앙</option>
+                        <option value="left">좌측</option>
+                        <option value="right">우측</option>
+                        <option value="top">상단</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>창가 위치</span>
+                      <select id="fitWindowPosition">
+                        <option value="top" selected>상단 창가</option>
+                        <option value="right">우측 창가</option>
+                        <option value="left">좌측 창가</option>
+                        <option value="bottom">하단 창가</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>급배수 위치</span>
+                      <select id="fitPlumbingPosition">
+                        <option value="bottom_right" selected>하단 우측</option>
+                        <option value="top_right">상단 우측</option>
+                        <option value="bottom_left">하단 좌측</option>
+                        <option value="top_left">상단 좌측</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>기둥 수</span>
+                      <input id="fitColumnCount" type="number" min="0" max="12" value="0" />
+                    </label>
+                    <label class="wide-marker-field">
+                      <span>코어/화장실/고정벽 메모</span>
+                      <input id="fitFixedElements" placeholder="예: 좌측 코어, 우측 고정벽, 하단 화장실" />
+                    </label>
                   </div>
                 </fieldset>
                 <label>
@@ -426,15 +505,25 @@
                 </label>
 
                 <fieldset class="full-field compact-fieldset">
-                  <legend>공간활용 타입</legend>
-                  <p class="field-help">고객이 신청서에서 작성한 사용 방식입니다. 접수 데이터를 불러오면 일부 항목이 자동 체크됩니다.</p>
+                  <legend>부서/팀 구성</legend>
+                  <p class="field-help">한 줄에 한 팀씩 입력합니다. 예: 영업팀 6명, 디자인팀 4명 집중, 경영지원팀 2명 대표실근접</p>
+                  <textarea id="fitDepartments" rows="4" placeholder="영업팀 6명 회의실근접&#10;디자인팀 4명 집중&#10;경영지원팀 2명 대표실근접"></textarea>
+                </fieldset>
+
+                <fieldset class="full-field compact-fieldset">
+                  <legend>우리 회사의 공간 사용 방식</legend>
+                  <p class="field-help">고객이 신청서에서 작성한 사용 방식입니다. 접수 데이터를 불러오면 자동으로 체크됩니다.</p>
                   <div class="fit-check-grid">
-                    <label><input type="checkbox" name="fitUsage" value="visitor" /> 외부인 출입이 잦음</label>
-                    <label><input type="checkbox" name="fitUsage" value="separate" /> 방문객/직원 동선 분리</label>
-                    <label><input type="checkbox" name="fitUsage" value="security" /> 보안 중요</label>
-                    <label><input type="checkbox" name="fitUsage" value="open" /> 오픈 오피스 선호</label>
-                    <label><input type="checkbox" name="fitUsage" value="call" /> 통화/온라인 회의 잦음</label>
-                    <label><input type="checkbox" name="fitUsage" value="growth" /> 향후 인원 증가 고려</label>
+                    <label><input type="checkbox" name="fitUsage" value="visitor" /> 방문객이나 외부인 출입이 잦습니다.</label>
+                    <label><input type="checkbox" name="fitUsage" value="separate" /> 방문객 동선과 직원 업무공간을 분리하고 싶습니다.</label>
+                    <label><input type="checkbox" name="fitUsage" value="security" /> 보안과 출입 통제가 중요합니다.</label>
+                    <label><input type="checkbox" name="fitUsage" value="open" /> 개방형 오픈 오피스를 선호합니다.</label>
+                    <label><input type="checkbox" name="fitUsage" value="focus" /> 집중 업무를 위한 조용한 공간이 필요합니다.</label>
+                    <label><input type="checkbox" name="fitUsage" value="call" /> 온라인 회의나 통화가 잦습니다.</label>
+                    <label><input type="checkbox" name="fitUsage" value="dining" /> 탕비실을 식사 공간으로 사용합니다.</label>
+                    <label><input type="checkbox" name="fitUsage" value="executive" /> 대표실을 직원 업무공간과 독립적으로 구성하고 싶습니다.</label>
+                    <label><input type="checkbox" name="fitUsage" value="department" /> 부서별로 업무공간을 구분해야 합니다.</label>
+                    <label><input type="checkbox" name="fitUsage" value="growth" /> 향후 인원 증가를 고려한 여유 공간이 필요합니다.</label>
                   </div>
                 </fieldset>
 
@@ -472,12 +561,17 @@
                   <div><span>대표실</span><strong id="fitExecutiveArea">-</strong></div>
                   <div><span>탕비/수납</span><strong id="fitSupportArea">-</strong></div>
                   <div><span>블록플랜 배치</span><strong id="fitLayoutCapacity">-</strong></div>
+                  <div><span>적합성 점수</span><strong id="fitScore">-</strong></div>
                 </div>
                 <div class="fit-notes">
                   <h3>설계 메모</h3>
                   <ul id="fitNotes">
                     <li>계산 결과가 여기에 표시됩니다.</li>
                   </ul>
+                </div>
+                <div class="fit-report" id="fitReport">
+                  <h3>고객용 설명</h3>
+                  <p>자동 블록 초안과 적합성 리포트가 여기에 표시됩니다.</p>
                 </div>
                 <div class="fit-diagram-panel">
                   <div class="diagram-head">
@@ -556,4 +650,4 @@
     <script src="app.js"></script>
   </body>
 </html>
-<!-- deployment: plan-clearance-check-v1 -->
+<!-- deployment: request-admin-sync-v8 -->
