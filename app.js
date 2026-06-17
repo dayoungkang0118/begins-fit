@@ -105,6 +105,10 @@ const state = {
     dataUrl: "",
     name: "",
   },
+  fitManualAdjustments: {},
+  fitManualAddedSpaces: [],
+  selectedManualSpace: "",
+  manualKeyboardBound: false,
 };
 
 function load(key, fallback) {
@@ -635,6 +639,7 @@ function renderFitCalculation() {
   $("#fitLayoutCapacity").textContent = result.layoutCapacityText;
   $("#fitNotes").innerHTML = result.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("");
   $("#fitDiagram").innerHTML = createFitDiagram(result);
+  bindFitManualEditor(result);
 }
 
 function calculateFitPlan() {
@@ -1317,6 +1322,7 @@ function renderFitCalculation() {
     `;
   }
   $("#fitDiagram").innerHTML = createFitDiagram(result);
+  bindFitManualEditor(result);
 }
 
 function calculateFitPlan() {
@@ -1914,6 +1920,7 @@ function renderFitCalculation() {
     `;
   }
   $("#fitDiagram").innerHTML = createFitDiagram(result);
+  bindFitManualEditor(result);
 }
 
 function calculateFitPlan() {
@@ -2684,14 +2691,30 @@ function createFitDiagram(result) {
 
 function createScaleGrid(plan) {
   const lines = [];
-  const step = plan.unit;
+  const step = Math.max(plan.unit * 0.5, 1);
+  let index = 0;
   for (let x = plan.frame.x; x <= plan.frame.x + plan.frame.width + 0.01; x += step) {
-    lines.push(`<line class="diagram-scale-grid" x1="${x}" y1="${plan.frame.y}" x2="${x}" y2="${plan.frame.y + plan.frame.height}"></line>`);
+    const major = index % 2 === 0 ? " diagram-scale-grid-major" : "";
+    lines.push(`<line class="diagram-scale-grid${major}" x1="${x}" y1="${plan.frame.y}" x2="${x}" y2="${plan.frame.y + plan.frame.height}"></line>`);
+    if (index > 0) {
+      lines.push(`<text class="diagram-grid-number" x="${x - 0.65}" y="${plan.frame.y - 0.65}">${formatGridMeter(index * 0.5)}</text>`);
+    }
+    index += 1;
   }
+  index = 0;
   for (let y = plan.frame.y; y <= plan.frame.y + plan.frame.height + 0.01; y += step) {
-    lines.push(`<line class="diagram-scale-grid" x1="${plan.frame.x}" y1="${y}" x2="${plan.frame.x + plan.frame.width}" y2="${y}"></line>`);
+    const major = index % 2 === 0 ? " diagram-scale-grid-major" : "";
+    lines.push(`<line class="diagram-scale-grid${major}" x1="${plan.frame.x}" y1="${y}" x2="${plan.frame.x + plan.frame.width}" y2="${y}"></line>`);
+    if (index > 0) {
+      lines.push(`<text class="diagram-grid-number" x="${plan.frame.x - 2.4}" y="${y + 0.45}">${formatGridMeter(index * 0.5)}</text>`);
+    }
+    index += 1;
   }
   return lines.join("");
+}
+
+function formatGridMeter(value) {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }
 
 function createSmartSpace(space, program) {
@@ -2894,7 +2917,7 @@ function buildBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key)
       spaces.push(createZone(`${key}-ceo`, "ceo_room", "임원존", "대표실", frame.x + frame.width - ceoW, ceoY, ceoW, Math.min(frame.height * 0.34, lowerLimitY - ceoY), "대표실은 독립성을 확보하되 직원 채광 우선이면 창가 점유를 줄이는 위치로 조정했습니다.", { door: "left", closed: true }));
     }
     spaces.push(createZone(`${key}-service`, "pantry", "서비스존", "탕비/서비스", serviceX, frame.y + frame.height * 0.42, serviceW, Math.min(frame.height * 0.28, lowerLimitY - (frame.y + frame.height * 0.42)), "탕비실은 급배수 가능 위치와 가까운 외곽 서비스 라인에 배치했습니다.", { door: serviceX === frame.x ? "right" : "left", closed: program.pantryStyle === "closed" }));
-    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "수납존", "수납존", serviceX, Math.min(frame.y + frame.height * 0.75, lowerLimitY - 5), serviceW, Math.min(5, lowerLimitY - frame.y), "수납은 남는 공간이 아니라 업무존과 서비스존 모두 접근 가능한 벽면에 두었습니다."));
+    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "창고", "창고", serviceX, Math.min(frame.y + frame.height * 0.75, lowerLimitY - 5), serviceW, Math.min(5, lowerLimitY - frame.y), "창고는 남는 공간이 아니라 업무존과 서비스존 모두 접근 가능한 벽면에 두었습니다."));
   }
 
   if (key === "B") {
@@ -2911,7 +2934,7 @@ function buildBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key)
     if (program.needsCeoRoom) spaces.push(createZone(`${key}-ceo`, "ceo_room", "임원존", "대표실", frame.x + frame.width - ceoW, frame.y, ceoW, Math.min(frame.height * 0.34, roomH), "대표실은 독립실로 두되 소통형 흐름을 막지 않도록 외곽에 붙였습니다.", { door: "left", closed: true }));
     spaces.push(createZone(`${key}-lounge`, "open_lounge", "공용존", "오픈 라운지", frame.x, loungeY, Math.max(0, frame.width - pantryW), Math.max(3, lowerLimitY - loungeY), "공용존은 직원들이 자연스럽게 지나가는 하단 동선과 연결했습니다."));
     spaces.push(createZone(`${key}-pantry`, "pantry", "서비스존", "오픈 탕비", frame.x + frame.width - pantryW, loungeY, pantryW, Math.max(3, lowerLimitY - loungeY), "탕비는 급배수 방향을 기준으로 라운지와 붙여 소통형 중심 공간으로 만들었습니다.", { door: "left", closed: program.pantryStyle === "closed" }));
-    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "수납존", "수납존", frame.x + frame.width - pantryW, Math.max(frame.y, loungeY - Math.min(m(1.2), 5)), pantryW, Math.min(m(1.2), 5), "수납은 라운지와 업무존 사이 보조 벽면으로 계획했습니다."));
+    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "창고", "창고", frame.x + frame.width - pantryW, Math.max(frame.y, loungeY - Math.min(m(1.2), 5)), pantryW, Math.min(m(1.2), 5), "창고는 라운지와 업무존 사이 보조 벽면으로 계획했습니다."));
   }
 
   if (key === "C") {
@@ -2936,10 +2959,13 @@ function buildBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key)
     }
     const pantryW = Math.min(m(4.2), frame.width * 0.24);
     spaces.push(createZone(`${key}-pantry`, "pantry", "서비스존", "탕비실", frame.x + frame.width - pantryW, frontZoneY, pantryW, frontZoneH, "탕비실은 급배수와 가까운 전면 서비스 밴드에 넣어 시공성을 확보했습니다.", { door: "bottom", closed: program.pantryStyle === "closed" }));
-    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "수납존", "수납/서버", frame.x + frame.width - pantryW, frame.y + workH * 0.5, pantryW, workH * 0.18, "수납과 서버는 외부인 시야에서 벗어난 관리 가능한 위치에 두었습니다."));
+    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "창고", "창고/서버", frame.x + frame.width - pantryW, frame.y + workH * 0.5, pantryW, workH * 0.18, "창고와 서버는 외부인 시야에서 벗어난 관리 가능한 위치에 두었습니다."));
   }
 
+  appendManualAddedSpaces(spaces, key, frame, unit);
+  applyManualAdjustmentsToSpaces(spaces, key, frame, unit);
   const circulationSpaces = buildBlockPlanCirculation(frame, spaces, program, key, unit);
+  applyManualAdjustmentsToSpaces(circulationSpaces, key, frame, unit);
   const workSpaces = spaces.filter((space) => space.type === "team_zone");
   const capacityByModule = workSpaces.reduce((sum, space) => sum + calculateDeskModuleCapacity(space, program, unit), 0);
   const capacity = Math.min(program.employeeCount, Math.max(0, capacityByModule));
@@ -2986,39 +3012,7 @@ function buildBlockPlanCirculation(frame, spaces, program, key, unit) {
   const blocks = [];
   const frontY = frame.y + frame.height - aisle;
   const entry = spaces.find((space) => space.type === "entry") || getEntrySpace(frame, program.site.entryPosition);
-  const entryCenter = centerX(entry);
-  const meeting = spaces.find((space) => space.type === "meeting_room");
   const work = spaces.find((space) => space.type === "team_zone");
-  const visitorFlowX = meeting ? Math.min(entryCenter - aisle / 2, meeting.x + meeting.width / 2) : frame.x;
-  const visitorFlowW = meeting ? Math.abs(meeting.x + meeting.width / 2 - entryCenter) + aisle : frame.width;
-  if (key === "C" || program.visitorFrequency === "high") {
-    blocks.push({
-      id: `${key}-visitor-flow`,
-      type: "corridor",
-      zone: "방문객 동선",
-      name: "방문객 동선",
-      x: Math.max(frame.x, visitorFlowX),
-      y: frontY,
-      width: Math.min(frame.width - Math.max(0, visitorFlowX - frame.x), visitorFlowW),
-      height: aisle,
-      open: true,
-      reason: "입구에서 방문객존과 회의존으로 바로 연결되는 동선을 확보했습니다.",
-    });
-  }
-  if (meeting) {
-    blocks.push({
-      id: `${key}-meeting-door-flow`,
-      type: "corridor",
-      zone: "회의실 전실",
-      name: "회의실 전실",
-      x: Math.max(frame.x, meeting.x - aisle * 0.35),
-      y: Math.min(frame.y + frame.height - aisle * 2, meeting.y + meeting.height),
-      width: Math.min(frame.width - (meeting.x - frame.x), meeting.width + aisle * 0.7),
-      height: aisle,
-      open: true,
-      reason: "회의실 문 앞에서 사람이 서고 방향 전환할 수 있는 전실 동선입니다.",
-    });
-  }
   blocks.push({
     id: `${key}-staff-flow`,
     type: "corridor",
@@ -3037,10 +3031,369 @@ function buildBlockPlanCirculation(frame, spaces, program, key, unit) {
 function createFitDiagram(result) {
   const plans = result.plan.options || [result.plan];
   return `
+    ${createManualEditor(result)}
     <div class="fit-option-grid">
       ${plans.map((plan) => createBlockPlanOptionSvg(plan, result.program, result.score)).join("")}
     </div>
   `;
+}
+
+function createManualEditor(result) {
+  const editableSpaces = getManualEditableSpaces(result);
+  if (!editableSpaces.length) return "";
+  const selected = editableSpaces.find((item) => item.key === state.selectedManualSpace) || editableSpaces[0];
+  state.selectedManualSpace = selected.key;
+  const metric = spaceToMetric(selected.space, selected.plan);
+  return `
+    <div class="manual-editor" id="fitManualEditor">
+      <div class="manual-editor-head">
+        <div>
+          <strong>수동 보정</strong>
+          <span>자동 초안을 기준으로 실 위치, 크기, 문 방향을 디자이너가 조정합니다.</span>
+        </div>
+        <button class="text-button" id="fitManualResetAll" type="button">전체 초기화</button>
+      </div>
+      <div class="manual-editor-grid">
+        <label class="manual-space-select">
+          <span>보정 대상</span>
+          <select id="fitManualSpaceSelect">
+            ${editableSpaces
+              .map(
+                (item) =>
+                  `<option value="${escapeHtml(item.key)}" ${item.key === selected.key ? "selected" : ""}>${escapeHtml(item.plan.name)} · ${escapeHtml(item.space.zone || item.space.name)}</option>`,
+              )
+              .join("")}
+          </select>
+        </label>
+        <label>
+          <span>실명</span>
+          <input id="fitManualName" value="${escapeHtml(selected.space.name || selected.space.zone || "")}" />
+        </label>
+        <label><span>X</span><input id="fitManualX" type="number" step="0.1" value="${metric.xM}" /><em>m</em></label>
+        <label><span>Y</span><input id="fitManualY" type="number" step="0.1" value="${metric.yM}" /><em>m</em></label>
+        <label><span>W</span><input id="fitManualW" type="number" step="0.1" value="${metric.wM}" /><em>m</em></label>
+        <label><span>H</span><input id="fitManualH" type="number" step="0.1" value="${metric.hM}" /><em>m</em></label>
+        <label>
+          <span>문 방향</span>
+          <select id="fitManualDoor">
+            ${getDoorOptionValues()
+              .map((value) => `<option value="${value}" ${String(selected.space.door || "") === value ? "selected" : ""}>${getDoorLabel(value)}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <button class="secondary-button" id="fitManualApply" type="button">보정 적용</button>
+        <button class="text-button" id="fitManualReset" type="button">선택 초기화</button>
+      </div>
+      <p class="manual-editor-tip">방향키 100mm 이동 · Shift+방향키 500mm · Alt+방향키 50mm</p>
+      <div class="manual-add-panel">
+        <strong>새 블럭 만들기</strong>
+        <div class="manual-add-grid">
+          <label>
+            <span>옵션</span>
+            <select id="fitNewBlockPlan">
+              ${result.plan.options
+                .map((plan) => `<option value="${plan.key}" ${plan.key === selected.plan.key ? "selected" : ""}>${escapeHtml(plan.name)}</option>`)
+                .join("")}
+            </select>
+          </label>
+          <label>
+            <span>종류</span>
+            <select id="fitNewBlockType">
+              ${["meeting_room", "ceo_room", "team_zone", "pantry", "storage", "open_lounge", "waiting_area"]
+                .map((type) => `<option value="${type}">${getSpaceTypeLabel(type)}</option>`)
+                .join("")}
+            </select>
+          </label>
+          <label><span>이름</span><input id="fitNewBlockName" placeholder="예: 창고" /></label>
+          <label><span>X</span><input id="fitNewBlockX" type="number" step="0.1" placeholder="${metric.xM}" /></label>
+          <label><span>Y</span><input id="fitNewBlockY" type="number" step="0.1" placeholder="${metric.yM}" /></label>
+          <label><span>W</span><input id="fitNewBlockW" type="number" step="0.1" value="3" /></label>
+          <label><span>H</span><input id="fitNewBlockH" type="number" step="0.1" value="2.5" /></label>
+          <button class="secondary-button" id="fitAddBlock" type="button">블럭 추가</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindFitManualEditor(result) {
+  const editor = $("#fitManualEditor");
+  if (!editor) return;
+  const select = $("#fitManualSpaceSelect");
+  const editableSpaces = getManualEditableSpaces(result);
+  const updateControls = () => {
+    const selected = editableSpaces.find((item) => item.key === state.selectedManualSpace) || editableSpaces[0];
+    if (!selected) return;
+    const metric = spaceToMetric(selected.space, selected.plan);
+    select.value = selected.key;
+    $("#fitManualX").value = metric.xM;
+    $("#fitManualY").value = metric.yM;
+    $("#fitManualW").value = metric.wM;
+    $("#fitManualH").value = metric.hM;
+    $("#fitManualDoor").value = selected.space.door || "";
+    $("#fitManualName").value = selected.space.name || selected.space.zone || "";
+  };
+
+  select.addEventListener("change", () => {
+    state.selectedManualSpace = select.value;
+    updateControls();
+    highlightManualSelection();
+  });
+
+  $("#fitManualApply").addEventListener("click", () => {
+    const selected = editableSpaces.find((item) => item.key === state.selectedManualSpace);
+    if (!selected) return;
+    state.fitManualAdjustments[state.selectedManualSpace] = {
+      xM: Number($("#fitManualX").value) || 0,
+      yM: Number($("#fitManualY").value) || 0,
+      wM: Math.max(Number($("#fitManualW").value) || 0, 0.5),
+      hM: Math.max(Number($("#fitManualH").value) || 0, 0.5),
+      door: $("#fitManualDoor").value,
+      name: ($("#fitManualName").value || "").trim(),
+    };
+    renderFitCalculation();
+  });
+
+  $("#fitManualReset").addEventListener("click", () => {
+    delete state.fitManualAdjustments[state.selectedManualSpace];
+    const [planKey, spaceId] = state.selectedManualSpace.split(":");
+    state.fitManualAddedSpaces = state.fitManualAddedSpaces.filter((space) => !(space.planKey === planKey && space.id === spaceId));
+    renderFitCalculation();
+  });
+
+  $("#fitManualResetAll").addEventListener("click", () => {
+    state.fitManualAdjustments = {};
+    state.fitManualAddedSpaces = [];
+    renderFitCalculation();
+  });
+
+  $("#fitAddBlock").addEventListener("click", () => {
+    const planKey = $("#fitNewBlockPlan").value;
+    const type = $("#fitNewBlockType").value;
+    const name = ($("#fitNewBlockName").value || getSpaceTypeLabel(type)).trim();
+    const selected = editableSpaces.find((item) => item.key === state.selectedManualSpace) || editableSpaces[0];
+    const metric = selected ? spaceToMetric(selected.space, selected.plan) : { xM: 1, yM: 1 };
+    const added = {
+      id: `custom-${Date.now().toString(36)}`,
+      planKey,
+      type,
+      zone: getSpaceTypeLabel(type),
+      name,
+      xM: Number($("#fitNewBlockX").value) || metric.xM,
+      yM: Number($("#fitNewBlockY").value) || metric.yM,
+      wM: Math.max(Number($("#fitNewBlockW").value) || 3, 0.5),
+      hM: Math.max(Number($("#fitNewBlockH").value) || 2.5, 0.5),
+      door: type === "meeting_room" || type === "ceo_room" || type === "pantry" ? "right" : "",
+    };
+    state.fitManualAddedSpaces.push(added);
+    state.selectedManualSpace = `${planKey}:${added.id}`;
+    renderFitCalculation();
+  });
+
+  $$(".diagram-smart-room[data-space-id], .diagram-desk-set[data-space-id]").forEach((rect) => {
+    rect.addEventListener("click", () => {
+      state.selectedManualSpace = `${rect.dataset.planKey}:${rect.dataset.spaceId}`;
+      updateControls();
+      highlightManualSelection();
+    });
+  });
+  $$(".diagram-flow-arrow[data-target-space]").forEach((arrow) => {
+    arrow.addEventListener("click", () => {
+      state.selectedManualSpace = `${arrow.dataset.planKey}:${arrow.dataset.targetSpace}`;
+      updateControls();
+      highlightManualSelection();
+    });
+  });
+  bindManualKeyboardShortcuts();
+  highlightManualSelection();
+}
+
+function getManualEditableSpaces(result) {
+  const plans = result.plan.options || [result.plan];
+  return plans.flatMap((plan) =>
+    [
+      ...plan.spaces.map((space) => ({
+        key: `${plan.key}:${space.id}`,
+        plan,
+        space,
+      })),
+      ...getDeskEditableSpaces(plan, result.program),
+    ],
+  );
+}
+
+function getDeskEditableSpaces(plan, program) {
+  return plan.spaces
+    .filter((space) => space.type === "team_zone")
+    .flatMap((space) =>
+      getDeskItemsForSpace(space, program, plan).map((desk, index) => ({
+        key: `${plan.key}:${desk.id}`,
+        plan,
+        space: applyAdjustmentToPseudoSpace({
+          id: desk.id,
+          type: "desk",
+          zone: "책상",
+          name: `책상 ${index + 1}`,
+          x: desk.x,
+          y: desk.y,
+          width: desk.width,
+          height: desk.height,
+          door: "",
+          reason: `${space.name} 안의 개별 책상입니다.`,
+        }, plan),
+      })),
+    );
+}
+
+function spaceToMetric(space, plan) {
+  const round = (value) => Math.round(value * 10) / 10;
+  return {
+    xM: round((space.x - plan.frame.x) / plan.unit),
+    yM: round((space.y - plan.frame.y) / plan.unit),
+    wM: round(space.width / plan.unit),
+    hM: round(space.height / plan.unit),
+  };
+}
+
+function applyManualAdjustmentsToSpaces(spaces, planKey, frame, unit) {
+  spaces.forEach((space) => {
+    const adjustment = state.fitManualAdjustments[`${planKey}:${space.id}`];
+    if (!adjustment) return;
+    const minSize = 0.5 * unit;
+    const width = Math.max(adjustment.wM * unit, minSize);
+    const height = Math.max(adjustment.hM * unit, minSize);
+    space.x = clampToRange(frame.x + adjustment.xM * unit, frame.x, frame.x + frame.width - width);
+    space.y = clampToRange(frame.y + adjustment.yM * unit, frame.y, frame.y + frame.height - height);
+    space.width = width;
+    space.height = height;
+    space.door = adjustment.door || space.door;
+    space.open = adjustment.door === "open" ? true : space.open;
+    if (adjustment.name) {
+      space.name = adjustment.name;
+      if (space.type !== "corridor") space.zone = adjustment.name;
+    }
+    space.reason = `${space.reason || ""} 디자이너 수동 보정값이 반영되었습니다.`.trim();
+  });
+}
+
+function appendManualAddedSpaces(spaces, planKey, frame, unit) {
+  state.fitManualAddedSpaces
+    .filter((space) => space.planKey === planKey)
+    .forEach((item) => {
+      const width = Math.max(item.wM * unit, 0.5 * unit);
+      const height = Math.max(item.hM * unit, 0.5 * unit);
+      spaces.push(createZone(
+        item.id,
+        item.type,
+        item.zone || getSpaceTypeLabel(item.type),
+        item.name || getSpaceTypeLabel(item.type),
+        clampToRange(frame.x + item.xM * unit, frame.x, frame.x + frame.width - width),
+        clampToRange(frame.y + item.yM * unit, frame.y, frame.y + frame.height - height),
+        width,
+        height,
+        "디자이너가 수동으로 추가한 블럭입니다.",
+        { door: item.door, closed: ["meeting_room", "ceo_room", "pantry", "storage"].includes(item.type) },
+      ));
+    });
+}
+
+function highlightManualSelection() {
+  $$(".diagram-smart-room[data-space-id], .diagram-desk-set[data-space-id]").forEach((rect) => {
+    rect.classList.toggle("is-selected", `${rect.dataset.planKey}:${rect.dataset.spaceId}` === state.selectedManualSpace);
+  });
+}
+
+function bindManualKeyboardShortcuts() {
+  if (state.manualKeyboardBound) return;
+  state.manualKeyboardBound = true;
+  document.addEventListener("keydown", (event) => {
+    if (!$("#fitManualEditor")) return;
+    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    const activeTag = document.activeElement?.tagName;
+    if (["INPUT", "TEXTAREA", "SELECT"].includes(activeTag)) return;
+    const step = event.shiftKey ? 0.5 : event.altKey ? 0.05 : 0.1;
+    const dx = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
+    const dy = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
+    moveSelectedManualSpace(dx, dy);
+    event.preventDefault();
+  });
+}
+
+function moveSelectedManualSpace(dxM, dyM) {
+  const xInput = $("#fitManualX");
+  const yInput = $("#fitManualY");
+  const applyButton = $("#fitManualApply");
+  if (!xInput || !yInput || !applyButton) return;
+  xInput.value = roundMetric((Number(xInput.value) || 0) + dxM);
+  yInput.value = roundMetric((Number(yInput.value) || 0) + dyM);
+  applyButton.click();
+}
+
+function roundMetric(value) {
+  return Math.round(value * 10) / 10;
+}
+
+function getDoorLabel(value) {
+  return {
+    "": "자동",
+    left: "좌측",
+    right: "우측",
+    top: "상단",
+    bottom: "하단",
+    "left-top": "좌측 상부",
+    "left-center": "좌측 중앙",
+    "left-bottom": "좌측 하부",
+    "right-top": "우측 상부",
+    "right-center": "우측 중앙",
+    "right-bottom": "우측 하부",
+    "top-left": "상단 좌측",
+    "top-center": "상단 중앙",
+    "top-right": "상단 우측",
+    "bottom-left": "하단 좌측",
+    "bottom-center": "하단 중앙",
+    "bottom-right": "하단 우측",
+    open: "오픈",
+  }[value] || value;
+}
+
+function getDoorOptionValues() {
+  return [
+    "",
+    "left",
+    "left-top",
+    "left-center",
+    "left-bottom",
+    "right",
+    "right-top",
+    "right-center",
+    "right-bottom",
+    "top",
+    "top-left",
+    "top-center",
+    "top-right",
+    "bottom",
+    "bottom-left",
+    "bottom-center",
+    "bottom-right",
+    "open",
+  ];
+}
+
+function getSpaceTypeLabel(type) {
+  return {
+    meeting_room: "회의실",
+    ceo_room: "대표실",
+    team_zone: "업무존",
+    pantry: "탕비실",
+    storage: "창고",
+    open_lounge: "라운지",
+    waiting_area: "방문객존",
+    corridor: "동선",
+  }[type] || "블럭";
+}
+
+function clampToRange(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function createBlockPlanOptionSvg(plan, program, score) {
@@ -3124,34 +3477,63 @@ function createCadShell(plan) {
 
 function createCadOpening(space) {
   if (space.type === "entry") {
-    return `<path class="diagram-cad-door" d="M ${space.x} ${space.y + space.height} L ${space.x + space.width} ${space.y + space.height}"></path><text class="diagram-small" x="${space.x + space.width / 2 - 2}" y="${space.y + space.height + 2.2}">ENT</text>`;
+    const y = space.y + space.height;
+    const cx = space.x + space.width / 2;
+    const w = Math.min(space.width, 9);
+    return `
+      <line class="diagram-cad-door" x1="${cx - w / 2}" y1="${y}" x2="${cx}" y2="${y - 3.8}"></line>
+      <line class="diagram-cad-door" x1="${cx + w / 2}" y1="${y}" x2="${cx}" y2="${y - 3.8}"></line>
+      <text class="diagram-small" x="${cx - 2}" y="${y + 2.2}">ENT</text>
+    `;
   }
   const r = Math.min(5, Math.max(2.8, Math.min(space.width, space.height) * 0.2));
-  const side = space.door || "right";
-  const hingeX = side === "left" ? space.x : side === "bottom" || side === "top" ? space.x + space.width * 0.5 : space.x + space.width;
-  const hingeY = side === "top" ? space.y : side === "bottom" ? space.y + space.height : space.y + space.height * 0.55;
+  const { side, position } = parseDoorPlacement(space.door || "right");
+  const hingeX = getDoorHingeX(space, side, position);
+  const hingeY = getDoorHingeY(space, side, position);
   if (side === "left") {
     return `
       <line class="diagram-cad-door" x1="${hingeX}" y1="${hingeY}" x2="${hingeX + r}" y2="${hingeY}"></line>
-      <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} A ${r} ${r} 0 0 0 ${hingeX + r} ${hingeY - r}"></path>
+      <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} L ${hingeX + r} ${hingeY} L ${hingeX} ${hingeY - r} Z"></path>
     `;
   }
   if (side === "bottom") {
     return `
       <line class="diagram-cad-door" x1="${hingeX}" y1="${hingeY}" x2="${hingeX}" y2="${hingeY - r}"></line>
-      <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} A ${r} ${r} 0 0 1 ${hingeX + r} ${hingeY - r}"></path>
+      <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} L ${hingeX} ${hingeY - r} L ${hingeX + r} ${hingeY} Z"></path>
     `;
   }
   if (side === "top") {
     return `
       <line class="diagram-cad-door" x1="${hingeX}" y1="${hingeY}" x2="${hingeX}" y2="${hingeY + r}"></line>
-      <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} A ${r} ${r} 0 0 0 ${hingeX + r} ${hingeY + r}"></path>
+      <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} L ${hingeX} ${hingeY + r} L ${hingeX + r} ${hingeY} Z"></path>
     `;
   }
   return `
     <line class="diagram-cad-door" x1="${hingeX}" y1="${hingeY}" x2="${hingeX - r}" y2="${hingeY}"></line>
-    <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} A ${r} ${r} 0 0 1 ${hingeX - r} ${hingeY - r}"></path>
+    <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} L ${hingeX - r} ${hingeY} L ${hingeX} ${hingeY - r} Z"></path>
   `;
+}
+
+function parseDoorPlacement(value) {
+  const [rawSide, rawPosition] = String(value || "right").split("-");
+  const side = ["left", "right", "top", "bottom"].includes(rawSide) ? rawSide : "right";
+  return { side, position: rawPosition || "center" };
+}
+
+function getDoorHingeX(space, side, position) {
+  if (side === "left") return space.x;
+  if (side === "right") return space.x + space.width;
+  if (position === "left") return space.x + Math.min(space.width * 0.28, 8);
+  if (position === "right") return space.x + Math.max(space.width * 0.72, space.width - 8);
+  return space.x + space.width * 0.5;
+}
+
+function getDoorHingeY(space, side, position) {
+  if (side === "top") return space.y;
+  if (side === "bottom") return space.y + space.height;
+  if (position === "top") return space.y + Math.min(space.height * 0.28, 8);
+  if (position === "bottom") return space.y + Math.max(space.height * 0.72, space.height - 8);
+  return space.y + space.height * 0.55;
 }
 
 function createSmartSpace(space, program, plan) {
@@ -3173,7 +3555,7 @@ function createSmartSpace(space, program, plan) {
   const labelY = space.y + Math.min(space.height - 1, 3.7);
   const areaLabel = area ? `${Math.round(area)}m²` : "";
   return `
-    <rect class="diagram-smart-room diagram-space-${space.type}" x="${space.x}" y="${space.y}" width="${space.width}" height="${space.height}" fill="${color}" stroke="${space.type === "corridor" ? "#7cae96" : "#000000"}"></rect>
+    <rect class="diagram-smart-room diagram-space-${space.type}" data-plan-key="${plan.key}" data-space-id="${escapeHtml(space.id)}" data-space-type="${space.type}" x="${space.x}" y="${space.y}" width="${space.width}" height="${space.height}" fill="${color}" stroke="${space.type === "corridor" ? "#7cae96" : "#000000"}"></rect>
     <text class="diagram-label" x="${space.x + 1.1}" y="${labelY}">${escapeHtml(space.zone || space.name)}</text>
     ${space.type !== "corridor" ? `<text class="diagram-small" x="${space.x + 1.1}" y="${labelY + 3.1}">${escapeHtml(space.name)} · ${areaLabel}</text>` : ""}
   `;
@@ -3181,14 +3563,14 @@ function createSmartSpace(space, program, plan) {
 
 function createBlockPlanArrows(plan) {
   const entry = plan.spaces.find((space) => space.type === "entry");
-  const meeting = plan.spaces.find((space) => space.type === "meeting_room");
   const work = plan.spaces.find((space) => space.type === "team_zone");
+  const staffFlow = plan.spaces.find((space) => space.id.includes("staff-flow"));
   const arrows = [];
-  if (entry && meeting) {
-    arrows.push(`<path class="diagram-flow-arrow diagram-flow-visitor" marker-end="url(#arrowHead-${plan.key})" d="M ${centerX(entry)} ${centerY(entry)} L ${centerX(meeting)} ${centerY(meeting)}"></path>`);
-  }
-  if (entry && work) {
-    arrows.push(`<path class="diagram-flow-arrow diagram-flow-staff" marker-end="url(#arrowHead-${plan.key})" d="M ${centerX(entry)} ${centerY(entry)} L ${centerX(work)} ${centerY(work)}"></path>`);
+  if (entry && work && staffFlow) {
+    const x = centerX(staffFlow);
+    arrows.push(`<path class="diagram-flow-arrow diagram-flow-staff" data-plan-key="${plan.key}" data-target-space="${staffFlow.id}" marker-end="url(#arrowHead-${plan.key})" d="M ${centerX(entry)} ${centerY(entry)} L ${x} ${centerY(entry)} L ${x} ${centerY(work)} L ${centerX(work)} ${centerY(work)}"></path>`);
+  } else if (entry && work) {
+    arrows.push(`<path class="diagram-flow-arrow diagram-flow-staff" data-plan-key="${plan.key}" data-target-space="${work.id}" marker-end="url(#arrowHead-${plan.key})" d="M ${centerX(entry)} ${centerY(entry)} L ${centerX(work)} ${centerY(work)}"></path>`);
   }
   return arrows.join("");
 }
@@ -3237,6 +3619,17 @@ function calculateDeskModuleCapacity(space, program, unit) {
 
 function createDeskModuleLayer(space, program, plan) {
   const metrics = getDeskPlanningMetrics(program, plan.unit);
+  const moduleRects = getDeskModuleFramesForSpace(space, program, plan);
+  const modules = moduleRects.map((module) => createDeskPlanningModule(module.x, module.y, metrics, plan, module.id)).join("");
+  const info = `${metrics.desk.label} · 뒤 ${program.deskBackAisleMm || 1000} · 옆 ${program.deskSideAisleMm || 1000}`;
+  return `
+    ${modules}
+    <text class="diagram-small diagram-desk-note" x="${space.x + 1.1}" y="${space.y + space.height - 1.1}">책상 a*b=${metrics.desk.label} / ${info}</text>
+  `;
+}
+
+function getDeskModuleFramesForSpace(space, program, plan) {
+  const metrics = getDeskPlanningMetrics(program, plan.unit);
   const padding = Math.max(plan.unit * 0.35, 1.2);
   const usableW = Math.max(0, space.width - padding * 2);
   const usableH = Math.max(0, space.height - padding * 2 - 4);
@@ -3248,43 +3641,81 @@ function createDeskModuleLayer(space, program, plan) {
   const moduleCount = Math.min(columns * rows, maxModules);
   const startX = space.x + padding;
   const startY = space.y + padding + 4;
-  const modules = Array.from({ length: moduleCount }, (_, index) => {
+  return Array.from({ length: moduleCount }, (_, index) => {
     const col = index % Math.max(columns, 1);
     const row = Math.floor(index / Math.max(columns, 1));
-    const x = startX + col * moduleStepX;
-    const y = startY + row * moduleStepY;
-    return createDeskPlanningModule(x, y, metrics);
-  }).join("");
-  const info = `${metrics.desk.label} · 뒤 ${program.deskBackAisleMm || 1000} · 옆 ${program.deskSideAisleMm || 1000}`;
-  return `
-    ${modules}
-    <text class="diagram-small diagram-desk-note" x="${space.x + 1.1}" y="${space.y + space.height - 1.1}">책상 a*b=${metrics.desk.label} / ${info}</text>
-  `;
+    return {
+      id: `${space.id}-desk-module-${index}`,
+      x: startX + col * moduleStepX,
+      y: startY + row * moduleStepY,
+    };
+  });
 }
 
-function createDeskPlanningModule(x, y, metrics) {
-  const { deskA, deskB, moduleW, moduleH, backAisle } = metrics;
-  const chairR = Math.max(0.42, deskB * 0.22);
+function getDeskItemsForSpace(space, program, plan) {
+  const metrics = getDeskPlanningMetrics(program, plan.unit);
+  return getDeskModuleFramesForSpace(space, program, plan).flatMap((module, moduleIndex) => getDeskItemsForModule(module.x, module.y, metrics, `${space.id}-desk-module-${moduleIndex}`));
+}
+
+function getDeskItemsForModule(x, y, metrics, idPrefix) {
+  const { deskA, deskB, backAisle } = metrics;
   const topDeskY = y + backAisle;
   const bottomDeskY = topDeskY + deskB;
-  const topChairY = y + backAisle * 0.5;
-  const bottomChairY = bottomDeskY + deskB + backAisle * 0.5;
+  return [
+    { id: `${idPrefix}-1`, x, y: topDeskY, width: deskA, height: deskB },
+    { id: `${idPrefix}-2`, x: x + deskA, y: topDeskY, width: deskA, height: deskB },
+    { id: `${idPrefix}-3`, x, y: bottomDeskY, width: deskA, height: deskB },
+    { id: `${idPrefix}-4`, x: x + deskA, y: bottomDeskY, width: deskA, height: deskB },
+  ];
+}
+
+function createDeskPlanningModule(x, y, metrics, plan, moduleId) {
+  const { deskA, deskB, moduleW, moduleH, backAisle } = metrics;
+  const topDeskY = y + backAisle;
+  const bottomDeskY = topDeskY + deskB;
+  const desks = getDeskItemsForModule(x, y, metrics, moduleId);
+  const deskSets = desks.map((desk) => createEditableDeskSet(desk, plan, metrics)).join("");
   return `
     <rect class="diagram-desk-module" x="${x}" y="${y}" width="${moduleW}" height="${moduleH}"></rect>
     <rect class="diagram-back-aisle" x="${x}" y="${y}" width="${moduleW}" height="${backAisle}"></rect>
     <rect class="diagram-back-aisle" x="${x}" y="${bottomDeskY + deskB}" width="${moduleW}" height="${backAisle}"></rect>
-    <rect class="diagram-desk" x="${x}" y="${topDeskY}" width="${deskA}" height="${deskB}"></rect>
-    <rect class="diagram-desk" x="${x + deskA}" y="${topDeskY}" width="${deskA}" height="${deskB}"></rect>
-    <rect class="diagram-desk" x="${x}" y="${bottomDeskY}" width="${deskA}" height="${deskB}"></rect>
-    <rect class="diagram-desk" x="${x + deskA}" y="${bottomDeskY}" width="${deskA}" height="${deskB}"></rect>
-    <circle class="diagram-chair" cx="${x + deskA * 0.5}" cy="${topChairY}" r="${chairR}"></circle>
-    <circle class="diagram-chair" cx="${x + deskA * 1.5}" cy="${topChairY}" r="${chairR}"></circle>
-    <circle class="diagram-chair" cx="${x + deskA * 0.5}" cy="${bottomChairY}" r="${chairR}"></circle>
-    <circle class="diagram-chair" cx="${x + deskA * 1.5}" cy="${bottomChairY}" r="${chairR}"></circle>
-    <line class="diagram-aisle-guide" x1="${x - 0.35}" y1="${y}" x2="${x - 0.35}" y2="${topDeskY}"></line>
-    <line class="diagram-aisle-guide" x1="${x - 0.35}" y1="${bottomDeskY + deskB}" x2="${x - 0.35}" y2="${y + moduleH}"></line>
-    <line class="diagram-aisle-guide" x1="${x + moduleW}" y1="${topDeskY + deskB * 0.5}" x2="${x + moduleW + metrics.sideAisle}" y2="${topDeskY + deskB * 0.5}"></line>
+    ${deskSets}
   `;
+}
+
+function createEditableDeskSet(desk, plan, metrics) {
+  const adjusted = applyAdjustmentToPseudoSpace({ ...desk, type: "desk", name: "책상" }, plan);
+  const chairR = Math.max(0.42, metrics.deskB * 0.22);
+  const isTopDesk = desk.id.endsWith("-1") || desk.id.endsWith("-2");
+  const chairCy = isTopDesk ? adjusted.y - chairR * 1.9 : adjusted.y + adjusted.height + chairR * 1.9;
+  const backGuideY1 = isTopDesk ? adjusted.y - metrics.backAisle : adjusted.y + adjusted.height;
+  const backGuideY2 = isTopDesk ? adjusted.y : adjusted.y + adjusted.height + metrics.backAisle;
+  const sideGuideX1 = adjusted.x + adjusted.width;
+  const sideGuideX2 = adjusted.x + adjusted.width + metrics.sideAisle;
+  const sideGuideY = adjusted.y + adjusted.height * 0.5;
+  return `
+    <g class="diagram-desk-set" data-plan-key="${plan.key}" data-space-id="${escapeHtml(desk.id)}" data-space-type="desk">
+      <line class="diagram-aisle-guide" x1="${adjusted.x - 0.35}" y1="${backGuideY1}" x2="${adjusted.x - 0.35}" y2="${backGuideY2}"></line>
+      <line class="diagram-aisle-guide" x1="${sideGuideX1}" y1="${sideGuideY}" x2="${sideGuideX2}" y2="${sideGuideY}"></line>
+      <rect class="diagram-desk" x="${adjusted.x}" y="${adjusted.y}" width="${adjusted.width}" height="${adjusted.height}"></rect>
+      <circle class="diagram-chair" cx="${adjusted.x + adjusted.width * 0.5}" cy="${chairCy}" r="${chairR}"></circle>
+    </g>
+  `;
+}
+
+function applyAdjustmentToPseudoSpace(space, plan) {
+  const adjustment = state.fitManualAdjustments[`${plan.key}:${space.id}`];
+  if (!adjustment) return space;
+  const width = Math.max((adjustment.wM || space.width / plan.unit) * plan.unit, 0.2 * plan.unit);
+  const height = Math.max((adjustment.hM || space.height / plan.unit) * plan.unit, 0.2 * plan.unit);
+  return {
+    ...space,
+    name: adjustment.name || space.name,
+    x: clampToRange(plan.frame.x + (adjustment.xM || 0) * plan.unit, plan.frame.x, plan.frame.x + plan.frame.width - width),
+    y: clampToRange(plan.frame.y + (adjustment.yM || 0) * plan.unit, plan.frame.y, plan.frame.y + plan.frame.height - height),
+    width,
+    height,
+  };
 }
 
 async function downloadFitDiagram(format = "svg") {
@@ -3339,29 +3770,31 @@ function serializeDiagramSvg(svg) {
     .diagram-window{stroke:#3b9fbd;stroke-width:.42}
     .diagram-plan-image{opacity:.42}
     .diagram-plan-grid{stroke:rgba(45,138,104,.18);stroke-width:.18}
-    .diagram-scale-grid{stroke:rgba(0,0,0,.12);stroke-width:.13}
+    .diagram-scale-grid{stroke:rgba(0,0,0,.09);stroke-width:.1}
+    .diagram-scale-grid-major{stroke:rgba(0,0,0,.17);stroke-width:.13}
+    .diagram-grid-number{fill:rgba(20,28,24,.54);font-size:1.65px;font-weight:600;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif}
     .diagram-cad-wall{fill:none;stroke:#111;stroke-width:1.05}
     .diagram-cad-door{fill:none;stroke:#111;stroke-width:.34}
-    .diagram-cad-swing{fill:none;stroke:#111;stroke-width:.28}
+    .diagram-cad-swing{fill:rgba(255,255,255,.72);stroke:#111;stroke-width:.24}
     .diagram-dim-line,.diagram-dim-tick{stroke:#7a7a7a;stroke-width:.18}
     .diagram-overlay{fill:rgba(255,255,255,.32)}
-    .diagram-label{fill:#000;font-size:3.7px;font-weight:400;font-family:Batang,serif}
-    .diagram-small{fill:#000;font-size:2.55px;font-family:Batang,serif}
+    .diagram-label{fill:#000;font-size:3.7px;font-weight:600;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif;letter-spacing:0}
+    .diagram-small{fill:#000;font-size:2.55px;font-weight:500;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif;letter-spacing:0}
     .diagram-desk{fill:transparent;stroke:#000;stroke-width:.32}
     .diagram-desk-module{fill:rgba(255,255,255,.08);stroke:#000;stroke-width:.22}
     .diagram-back-aisle{fill:rgba(255,255,255,.01);stroke:rgba(230,75,46,.35);stroke-width:.16}
     .diagram-aisle-guide{stroke:#e64b2e;stroke-width:.22}
-    .diagram-desk-note{font-family:Arial,sans-serif}
+    .diagram-desk-note{font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif}
     .diagram-furniture{fill:transparent;stroke:#000;stroke-width:.32}
     .diagram-furniture-line{stroke:#000;stroke-width:.24}
     .diagram-counter{fill:transparent;stroke:#000;stroke-width:.3}
     .diagram-chair{fill:transparent;stroke:#000;stroke-width:.28}
     .diagram-clearance{fill:transparent;stroke:transparent;stroke-width:0}
-    .diagram-dimension{fill:#000;font-size:2.2px;font-weight:800;font-family:Arial,sans-serif}
+    .diagram-dimension{fill:#000;font-size:2.2px;font-weight:700;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif;letter-spacing:0}
     .diagram-aisle{fill:transparent;stroke:transparent;stroke-width:0}
     .diagram-arrow{stroke:transparent;stroke-width:0}
-    .diagram-smart-room{stroke-width:.48}
-    .diagram-space-corridor{opacity:.76}
+    .diagram-smart-room{fill-opacity:.78;stroke-width:.48}
+    .diagram-space-corridor{fill-opacity:.62;opacity:.82}
     .diagram-aisle-fill{fill:rgba(148,204,178,.35);stroke:rgba(45,138,104,.36);stroke-dasharray:.8 .55;stroke-width:.22}
     .diagram-column{fill:#fff;stroke:#000;stroke-width:.42}
     .diagram-plumbing{fill:#a8d8e4;stroke:#000;stroke-width:.34}
