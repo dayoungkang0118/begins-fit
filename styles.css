@@ -9,6 +9,7 @@
   --amber: #c88719;
   --rose: #b25555;
   --shadow: 0 18px 42px rgba(23, 32, 28, 0.1);
+  --font-ui: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", Arial, sans-serif;
 }
 
 * {
@@ -20,7 +21,7 @@ body {
   min-height: 100vh;
   color: var(--ink);
   background: var(--wash);
-  font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+  font-family: var(--font-ui);
 }
 
 button,
@@ -1287,11 +1288,156 @@ fieldset {
 }
 
 .diagram-smart-room {
+  fill-opacity: 0.78;
   stroke-width: 0.48;
+  cursor: pointer;
+  transition: stroke-width 0.15s ease, filter 0.15s ease;
+}
+
+.diagram-smart-room.is-selected {
+  filter: drop-shadow(0 0 2px rgba(20, 106, 116, 0.8));
+  stroke: #146a74 !important;
+  stroke-width: 0.9;
 }
 
 .diagram-space-corridor {
-  opacity: 0.76;
+  cursor: pointer;
+  fill-opacity: 0.62;
+  opacity: 0.82;
+}
+
+.manual-editor {
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.manual-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.manual-editor-head strong {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.manual-editor-head span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.manual-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.7fr) repeat(4, minmax(76px, 0.7fr)) minmax(96px, 0.8fr) auto auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.manual-editor-grid label {
+  display: grid;
+  gap: 4px;
+}
+
+.manual-editor-grid label span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.manual-editor-grid input,
+.manual-editor-grid select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.manual-editor-grid label em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.manual-editor-grid .secondary-button,
+.manual-editor-grid .text-button {
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.manual-editor-tip {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.manual-add-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.manual-add-panel > strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.manual-add-grid {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.9fr) minmax(120px, 0.9fr) minmax(140px, 1.2fr) repeat(4, minmax(68px, 0.6fr)) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.manual-add-grid label {
+  display: grid;
+  gap: 4px;
+}
+
+.manual-add-grid label span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.manual-add-grid input,
+.manual-add-grid select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+@media (max-width: 1120px) {
+  .manual-editor-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .manual-space-select {
+    grid-column: 1 / -1;
+  }
+
+  .manual-add-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .diagram-zone-fill {
@@ -1339,8 +1485,20 @@ fieldset {
 }
 
 .diagram-scale-grid {
-  stroke: rgba(0, 0, 0, 0.12);
+  stroke: rgba(0, 0, 0, 0.09);
+  stroke-width: 0.1;
+}
+
+.diagram-scale-grid-major {
+  stroke: rgba(0, 0, 0, 0.17);
   stroke-width: 0.13;
+}
+
+.diagram-grid-number {
+  fill: rgba(20, 28, 24, 0.54);
+  font-family: var(--font-ui);
+  font-size: 0.85px;
+  font-weight: 600;
 }
 
 .diagram-cad-wall {
@@ -1356,9 +1514,9 @@ fieldset {
 }
 
 .diagram-cad-swing {
-  fill: none;
+  fill: rgba(255, 255, 255, 0.72);
   stroke: #111111;
-  stroke-width: 0.28;
+  stroke-width: 0.24;
 }
 
 .diagram-dim-line,
@@ -1373,21 +1531,35 @@ fieldset {
 
 .diagram-label {
   fill: #000000;
-  font-family: "Nanum Myeongjo", "Batang", "Times New Roman", serif;
-  font-size: 3.7px;
-  font-weight: 400;
+  font-family: var(--font-ui);
+  font-size: 1.85px;
+  font-weight: 600;
+  letter-spacing: 0;
 }
 
 .diagram-small {
   fill: #000000;
-  font-family: "Nanum Myeongjo", "Batang", "Times New Roman", serif;
-  font-size: 2.55px;
+  font-family: var(--font-ui);
+  font-size: 1.25px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.diagram-desk-set {
+  cursor: pointer;
 }
 
 .diagram-desk {
   fill: transparent;
   stroke: #000000;
   stroke-width: 0.32;
+}
+
+.diagram-desk-set.is-selected .diagram-desk,
+.diagram-desk-set.is-selected .diagram-chair {
+  stroke: #146a74;
+  stroke-width: 0.68;
+  filter: drop-shadow(0 0 1.8px rgba(20, 106, 116, 0.75));
 }
 
 .diagram-desk-module {
@@ -1408,7 +1580,8 @@ fieldset {
 }
 
 .diagram-desk-note {
-  font-family: Arial, sans-serif;
+  font-family: var(--font-ui);
+  font-size: 0.95px;
 }
 
 .diagram-furniture {
@@ -1443,7 +1616,7 @@ fieldset {
 
 .diagram-dimension {
   fill: #000000;
-  font-size: 2.2px;
+  font-size: 1.1px;
   font-weight: 800;
 }
 
@@ -1476,8 +1649,10 @@ fieldset {
 
 .diagram-flow-arrow {
   fill: none;
+  cursor: pointer;
   stroke-width: 0.46;
   stroke-linecap: round;
+  pointer-events: stroke;
 }
 
 .diagram-flow-visitor {

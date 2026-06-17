@@ -3552,12 +3552,11 @@ function createSmartSpace(space, program, plan) {
     corridor: "#dceee5",
   }[space.type] || "#ffffff";
   const area = plan?.unit ? getSpaceAreaSqm(space, plan.unit) : 0;
-  const labelY = space.y + Math.min(space.height - 1, 3.7);
-  const areaLabel = area ? `${Math.round(area)}m²` : "";
+  const label = getAdaptiveSpaceLabel(space, area);
   return `
     <rect class="diagram-smart-room diagram-space-${space.type}" data-plan-key="${plan.key}" data-space-id="${escapeHtml(space.id)}" data-space-type="${space.type}" x="${space.x}" y="${space.y}" width="${space.width}" height="${space.height}" fill="${color}" stroke="${space.type === "corridor" ? "#7cae96" : "#000000"}"></rect>
-    <text class="diagram-label" x="${space.x + 1.1}" y="${labelY}">${escapeHtml(space.zone || space.name)}</text>
-    ${space.type !== "corridor" ? `<text class="diagram-small" x="${space.x + 1.1}" y="${labelY + 3.1}">${escapeHtml(space.name)} · ${areaLabel}</text>` : ""}
+    ${label.title ? `<text class="diagram-label" x="${label.x}" y="${label.titleY}" font-size="${label.titleSize}">${escapeHtml(label.title)}</text>` : ""}
+    ${label.sub ? `<text class="diagram-small" x="${label.x}" y="${label.subY}" font-size="${label.subSize}">${escapeHtml(label.sub)}</text>` : ""}
   `;
 }
 
@@ -3578,6 +3577,43 @@ function createBlockPlanArrows(plan) {
 function getSpaceAreaSqm(space, unit) {
   if (!unit) return 0;
   return (space.width / unit) * (space.height / unit);
+}
+
+function getAdaptiveSpaceLabel(space, area) {
+  const minSide = Math.min(space.width, space.height);
+  if (minSide < 1.8 || space.width < 2.4 || space.height < 1.4) {
+    return { title: "", sub: "" };
+  }
+  const titleSize = roundSvgSize(clampToRange(minSide * 0.18, 0.62, 1.85));
+  const subSize = roundSvgSize(clampToRange(titleSize * 0.66, 0.46, 1.05));
+  const x = roundSvgSize(space.x + Math.min(0.65, Math.max(0.25, space.width * 0.05)));
+  const titleY = roundSvgSize(space.y + Math.min(space.height - 0.35, Math.max(titleSize + 0.2, space.height * 0.22)));
+  const title = fitSvgText(space.zone || space.name || "", space.width, titleSize);
+  const canShowSub = space.type !== "corridor" && space.height >= titleSize + subSize + 1.4 && space.width >= 5;
+  const areaLabel = area >= 1 ? `${Math.round(area)}㎡` : "";
+  const sub = [space.name, areaLabel].filter(Boolean).join(" · ");
+  return {
+    x,
+    title,
+    titleY,
+    titleSize,
+    sub: canShowSub ? fitSvgText(sub, space.width, subSize) : "",
+    subY: roundSvgSize(titleY + subSize + 0.45),
+    subSize,
+  };
+}
+
+function fitSvgText(text, width, fontSize) {
+  const value = String(text || "").trim();
+  if (!value) return "";
+  const maxChars = Math.max(2, Math.floor((width - 0.9) / Math.max(fontSize * 0.72, 0.45)));
+  if (value.length <= maxChars) return value;
+  if (maxChars <= 3) return value.slice(0, maxChars);
+  return `${value.slice(0, maxChars - 1)}…`;
+}
+
+function roundSvgSize(value) {
+  return Math.round(value * 100) / 100;
 }
 
 function centerX(space) {
@@ -3772,25 +3808,25 @@ function serializeDiagramSvg(svg) {
     .diagram-plan-grid{stroke:rgba(45,138,104,.18);stroke-width:.18}
     .diagram-scale-grid{stroke:rgba(0,0,0,.09);stroke-width:.1}
     .diagram-scale-grid-major{stroke:rgba(0,0,0,.17);stroke-width:.13}
-    .diagram-grid-number{fill:rgba(20,28,24,.54);font-size:1.65px;font-weight:600;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif}
+    .diagram-grid-number{fill:rgba(20,28,24,.54);font-size:.85px;font-weight:600;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif}
     .diagram-cad-wall{fill:none;stroke:#111;stroke-width:1.05}
     .diagram-cad-door{fill:none;stroke:#111;stroke-width:.34}
     .diagram-cad-swing{fill:rgba(255,255,255,.72);stroke:#111;stroke-width:.24}
     .diagram-dim-line,.diagram-dim-tick{stroke:#7a7a7a;stroke-width:.18}
     .diagram-overlay{fill:rgba(255,255,255,.32)}
-    .diagram-label{fill:#000;font-size:3.7px;font-weight:600;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif;letter-spacing:0}
-    .diagram-small{fill:#000;font-size:2.55px;font-weight:500;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif;letter-spacing:0}
+    .diagram-label{fill:#000;font-size:1.85px;font-weight:600;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif;letter-spacing:0}
+    .diagram-small{fill:#000;font-size:1.25px;font-weight:500;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif;letter-spacing:0}
     .diagram-desk{fill:transparent;stroke:#000;stroke-width:.32}
     .diagram-desk-module{fill:rgba(255,255,255,.08);stroke:#000;stroke-width:.22}
     .diagram-back-aisle{fill:rgba(255,255,255,.01);stroke:rgba(230,75,46,.35);stroke-width:.16}
     .diagram-aisle-guide{stroke:#e64b2e;stroke-width:.22}
-    .diagram-desk-note{font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif}
+    .diagram-desk-note{font-size:.95px;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif}
     .diagram-furniture{fill:transparent;stroke:#000;stroke-width:.32}
     .diagram-furniture-line{stroke:#000;stroke-width:.24}
     .diagram-counter{fill:transparent;stroke:#000;stroke-width:.3}
     .diagram-chair{fill:transparent;stroke:#000;stroke-width:.28}
     .diagram-clearance{fill:transparent;stroke:transparent;stroke-width:0}
-    .diagram-dimension{fill:#000;font-size:2.2px;font-weight:700;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif;letter-spacing:0}
+    .diagram-dimension{fill:#000;font-size:1.1px;font-weight:700;font-family:Pretendard,'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',Arial,sans-serif;letter-spacing:0}
     .diagram-aisle{fill:transparent;stroke:transparent;stroke-width:0}
     .diagram-arrow{stroke:transparent;stroke-width:0}
     .diagram-smart-room{fill-opacity:.78;stroke-width:.48}
