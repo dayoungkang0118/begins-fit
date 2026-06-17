@@ -2862,6 +2862,11 @@ function buildBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key)
     B: "탕비/라운지를 중심으로 직원 교류와 공용공간 접근성을 높인 안입니다.",
     C: "입구, 이미지월, 회의실 동선을 강조해 외부 손님 응대와 보안을 우선한 안입니다.",
   }[key];
+  const mainAisle = Math.max((program.density.mainAisle / 10) * unit, 4);
+  const entryBuffer = mainAisle + Math.max(entry.height * 0.45, 2.2);
+  const lowerLimitY = frame.y + frame.height - entryBuffer;
+  const staffAisleX = frame.x + frame.width * 0.5 - mainAisle / 2;
+  const clampValue = (value, min, max) => Math.min(Math.max(value, min), max);
 
   spaces.push({
     ...entry,
@@ -2879,51 +2884,58 @@ function buildBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key)
     const ceoW = program.needsCeoRoom ? Math.min(m(4.2), frame.width * 0.25) : 0;
     const serviceX = plumbingPoint.x > frame.x + frame.width / 2 ? frame.x + frame.width - serviceW : frame.x;
     const meetingX = serviceX === frame.x ? frame.x + serviceW : frame.x;
-    const workX = frame.x + meetingW;
+    const workX = frame.x + meetingW + mainAisle;
     const workW = Math.max(m(5), frame.width - meetingW - ceoW - serviceW * 0.35);
 
-    spaces.push(createZone(`${key}-meeting`, "meeting_room", "회의존", meetingLabel, meetingX, frame.y, meetingW, frame.height * 0.42, "회의실을 입구에서 너무 멀지 않은 측면에 두어 외부/내부 접근을 모두 확보했습니다."));
-    spaces.push(createZone(`${key}-work`, "team_zone", "업무존", `업무존 ${program.employeeCount}석`, workX, frame.y, workW, frame.height, "가장 큰 연속 면적을 업무공간에 배분해 좌석 효율과 향후 증원을 우선했습니다."));
+    spaces.push(createZone(`${key}-meeting`, "meeting_room", "회의존", meetingLabel, meetingX, frame.y, meetingW, Math.min(frame.height * 0.42, lowerLimitY - frame.y), "회의실을 입구에서 너무 멀지 않은 측면에 두어 외부/내부 접근을 모두 확보했습니다.", { door: "right", closed: true }));
+    spaces.push(createZone(`${key}-work`, "team_zone", "업무존", `업무존 ${program.employeeCount}석`, workX, frame.y, Math.max(m(5), workW - mainAisle), lowerLimitY - frame.y, "가장 큰 연속 면적을 업무공간에 배분해 좌석 효율과 향후 증원을 우선했습니다."));
     if (program.needsCeoRoom) {
       const ceoY = program.daylightPriority === "employee_first" ? frame.y + frame.height * 0.44 : frame.y;
-      spaces.push(createZone(`${key}-ceo`, "ceo_room", "임원존", "대표실", frame.x + frame.width - ceoW, ceoY, ceoW, frame.height * 0.34, "대표실은 독립성을 확보하되 직원 채광 우선이면 창가 점유를 줄이는 위치로 조정했습니다."));
+      spaces.push(createZone(`${key}-ceo`, "ceo_room", "임원존", "대표실", frame.x + frame.width - ceoW, ceoY, ceoW, Math.min(frame.height * 0.34, lowerLimitY - ceoY), "대표실은 독립성을 확보하되 직원 채광 우선이면 창가 점유를 줄이는 위치로 조정했습니다.", { door: "left", closed: true }));
     }
-    spaces.push(createZone(`${key}-service`, "pantry", "서비스존", "탕비/서비스", serviceX, frame.y + frame.height * 0.42, serviceW, frame.height * 0.38, "탕비실은 급배수 가능 위치와 가까운 외곽 서비스 라인에 배치했습니다."));
-    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "수납존", "수납존", serviceX, frame.y + frame.height * 0.8, serviceW, frame.height * 0.2, "수납은 남는 공간이 아니라 업무존과 서비스존 모두 접근 가능한 벽면에 두었습니다."));
+    spaces.push(createZone(`${key}-service`, "pantry", "서비스존", "탕비/서비스", serviceX, frame.y + frame.height * 0.42, serviceW, Math.min(frame.height * 0.28, lowerLimitY - (frame.y + frame.height * 0.42)), "탕비실은 급배수 가능 위치와 가까운 외곽 서비스 라인에 배치했습니다.", { door: serviceX === frame.x ? "right" : "left", closed: program.pantryStyle === "closed" }));
+    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "수납존", "수납존", serviceX, Math.min(frame.y + frame.height * 0.75, lowerLimitY - 5), serviceW, Math.min(5, lowerLimitY - frame.y), "수납은 남는 공간이 아니라 업무존과 서비스존 모두 접근 가능한 벽면에 두었습니다."));
   }
 
   if (key === "B") {
     const loungeH = Math.min(m(3.2), frame.height * 0.26);
     const meetingW = Math.min(m(4.5), frame.width * 0.25);
     const ceoW = program.needsCeoRoom ? Math.min(m(4), frame.width * 0.23) : 0;
-    const workW = Math.max(m(6), frame.width - meetingW - ceoW);
+    const workW = Math.max(m(6), frame.width - meetingW - ceoW - mainAisle);
     const pantryW = Math.min(m(5.2), frame.width * 0.32);
+    const loungeY = Math.min(frame.y + frame.height - loungeH - entryBuffer * 0.35, lowerLimitY - loungeH * 0.65);
+    const roomH = Math.max(m(4), loungeY - frame.y);
 
-    spaces.push(createZone(`${key}-meeting`, "meeting_room", "회의존", meetingLabel, frame.x, frame.y, meetingW, frame.height - loungeH, "회의존은 업무존과 라운지 모두 접근 가능한 좌측 밴드로 잡았습니다."));
-    spaces.push(createZone(`${key}-work`, "team_zone", "업무존", `업무존 ${program.employeeCount}석`, frame.x + meetingW, frame.y, workW, frame.height - loungeH, "업무존은 창가와 넓은 면을 확보하고, 라운지와 가까운 열린 덩어리로 계획했습니다."));
-    if (program.needsCeoRoom) spaces.push(createZone(`${key}-ceo`, "ceo_room", "임원존", "대표실", frame.x + frame.width - ceoW, frame.y, ceoW, frame.height * 0.38, "대표실은 독립실로 두되 소통형 흐름을 막지 않도록 외곽에 붙였습니다."));
-    spaces.push(createZone(`${key}-lounge`, "open_lounge", "공용존", "오픈 라운지", frame.x, frame.y + frame.height - loungeH, Math.max(0, frame.width - pantryW), loungeH, "공용존은 직원들이 자연스럽게 지나가는 하단 동선과 연결했습니다."));
-    spaces.push(createZone(`${key}-pantry`, "pantry", "서비스존", "오픈 탕비", frame.x + frame.width - pantryW, frame.y + frame.height - loungeH, pantryW, loungeH, "탕비는 급배수 방향을 기준으로 라운지와 붙여 소통형 중심 공간으로 만들었습니다."));
-    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "수납존", "수납존", frame.x + frame.width - pantryW, frame.y + frame.height - loungeH - Math.min(m(1.2), 5), pantryW, Math.min(m(1.2), 5), "수납은 라운지와 업무존 사이 보조 벽면으로 계획했습니다."));
+    spaces.push(createZone(`${key}-meeting`, "meeting_room", "회의존", meetingLabel, frame.x, frame.y, meetingW, roomH, "회의존은 업무존과 라운지 모두 접근 가능한 좌측 밴드로 잡았습니다.", { door: "right", closed: true }));
+    spaces.push(createZone(`${key}-work`, "team_zone", "업무존", `업무존 ${program.employeeCount}석`, frame.x + meetingW + mainAisle, frame.y, workW, roomH, "업무존은 창가와 넓은 면을 확보하고, 라운지와 가까운 열린 덩어리로 계획했습니다."));
+    if (program.needsCeoRoom) spaces.push(createZone(`${key}-ceo`, "ceo_room", "임원존", "대표실", frame.x + frame.width - ceoW, frame.y, ceoW, Math.min(frame.height * 0.34, roomH), "대표실은 독립실로 두되 소통형 흐름을 막지 않도록 외곽에 붙였습니다.", { door: "left", closed: true }));
+    spaces.push(createZone(`${key}-lounge`, "open_lounge", "공용존", "오픈 라운지", frame.x, loungeY, Math.max(0, frame.width - pantryW), Math.max(3, lowerLimitY - loungeY), "공용존은 직원들이 자연스럽게 지나가는 하단 동선과 연결했습니다."));
+    spaces.push(createZone(`${key}-pantry`, "pantry", "서비스존", "오픈 탕비", frame.x + frame.width - pantryW, loungeY, pantryW, Math.max(3, lowerLimitY - loungeY), "탕비는 급배수 방향을 기준으로 라운지와 붙여 소통형 중심 공간으로 만들었습니다.", { door: "left", closed: program.pantryStyle === "closed" }));
+    if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "수납존", "수납존", frame.x + frame.width - pantryW, Math.max(frame.y, loungeY - Math.min(m(1.2), 5)), pantryW, Math.min(m(1.2), 5), "수납은 라운지와 업무존 사이 보조 벽면으로 계획했습니다."));
   }
 
   if (key === "C") {
-    const frontH = Math.min(m(4.4), frame.height * 0.34);
+    const frontH = Math.min(m(5.2), frame.height * 0.38);
     const visitorW = Math.min(m(4), frame.width * 0.24);
     const meetingW = Math.min(m(6.2), frame.width * 0.34);
     const ceoW = program.needsCeoRoom ? Math.min(m(4.4), frame.width * 0.25) : 0;
     const workY = frame.y;
-    const workH = frame.height - frontH;
+    const frontZoneY = frame.y + frame.height - frontH;
+    const frontZoneH = Math.max(m(2.2), frontH - entryBuffer);
+    const entryCenter = centerX(entry);
+    const visitorX = clampValue(entryCenter - visitorW * 0.55, frame.x, frame.x + frame.width - visitorW - meetingW - mainAisle);
+    const meetingX = visitorX + visitorW + mainAisle * 0.45;
+    const workH = frontZoneY - frame.y;
 
-    spaces.push(createZone(`${key}-visitor`, "waiting_area", "방문객존", "방문객/이미지월", frame.x, frame.y + frame.height - frontH, visitorW, frontH, "입구에서 바로 보이는 이미지월과 대기 영역으로 외부 응대 인상을 강화했습니다."));
-    spaces.push(createZone(`${key}-meeting`, "meeting_room", "회의존", meetingLabel, frame.x + visitorW, frame.y + frame.height - frontH, meetingW, frontH, "외부 손님이 업무공간 깊숙이 들어오지 않도록 회의실을 입구 전면에 배치했습니다."));
+    spaces.push(createZone(`${key}-visitor`, "waiting_area", "방문객존", "방문객/이미지월", visitorX, frontZoneY, visitorW, frontZoneH, "입구에서 바로 보이는 이미지월과 대기 영역으로 외부 응대 인상을 강화했습니다."));
+    spaces.push(createZone(`${key}-meeting`, "meeting_room", "회의존", meetingLabel, meetingX, frontZoneY, meetingW, frontZoneH, "외부 손님이 업무공간 깊숙이 들어오지 않도록 회의실을 입구 전면에 배치했습니다.", { door: "bottom", closed: true }));
     const workW = Math.max(m(5), frame.width - ceoW);
     spaces.push(createZone(`${key}-work`, "team_zone", "업무존", `보호 업무존 ${program.employeeCount}석`, frame.x, workY, workW, workH, "업무공간은 방문객 전면 동선 뒤쪽으로 보호해 보안성과 집중도를 높였습니다."));
     if (program.needsCeoRoom) {
-      spaces.push(createZone(`${key}-ceo`, "ceo_room", "임원존", "대표실", frame.x + frame.width - ceoW, frame.y, ceoW, workH * 0.48, "대표실은 회의존과 가깝고 업무존과 직접 시선이 맞지 않는 독립 위치로 잡았습니다."));
+      spaces.push(createZone(`${key}-ceo`, "ceo_room", "임원존", "대표실", frame.x + frame.width - ceoW, frame.y, ceoW, workH * 0.48, "대표실은 회의존과 가깝고 업무존과 직접 시선이 맞지 않는 독립 위치로 잡았습니다.", { door: "left", closed: true }));
     }
     const pantryW = Math.min(m(4.2), frame.width * 0.24);
-    spaces.push(createZone(`${key}-pantry`, "pantry", "서비스존", "탕비실", frame.x + frame.width - pantryW, frame.y + frame.height - frontH, pantryW, frontH, "탕비실은 급배수와 가까운 전면 서비스 밴드에 넣어 시공성을 확보했습니다."));
+    spaces.push(createZone(`${key}-pantry`, "pantry", "서비스존", "탕비실", frame.x + frame.width - pantryW, frontZoneY, pantryW, frontZoneH, "탕비실은 급배수와 가까운 전면 서비스 밴드에 넣어 시공성을 확보했습니다.", { door: "bottom", closed: program.pantryStyle === "closed" }));
     if (program.needsStorage) spaces.push(createZone(`${key}-storage`, "storage", "수납존", "수납/서버", frame.x + frame.width - pantryW, frame.y + workH * 0.5, pantryW, workH * 0.18, "수납과 서버는 외부인 시야에서 벗어난 관리 가능한 위치에 두었습니다."));
   }
 
@@ -2937,7 +2949,7 @@ function buildBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key)
     name: optionName,
     reason: optionReason,
     frame,
-    spaces: [...circulationSpaces, ...spaces],
+    spaces: [...spaces, ...circulationSpaces],
     capacity: {
       ...getDeskLayoutCapacity({ seats: program.employeeCount, maxWidth: frame.width, maxHeight: frame.height, compact: program.densityType === "compact" }),
       visibleSeats: capacity,
@@ -2953,26 +2965,58 @@ function buildBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key)
   };
 }
 
-function createZone(id, type, zone, name, x, y, width, height, reason) {
-  return { id, type, zone, name, x, y, width: Math.max(0, width), height: Math.max(0, height), open: true, reason };
+function createZone(id, type, zone, name, x, y, width, height, reason, options = {}) {
+  return {
+    id,
+    type,
+    zone,
+    name,
+    x,
+    y,
+    width: Math.max(0, width),
+    height: Math.max(0, height),
+    open: options.open ?? !options.closed,
+    door: options.door || null,
+    reason,
+  };
 }
 
 function buildBlockPlanCirculation(frame, spaces, program, key, unit) {
   const aisle = Math.max((program.density.mainAisle / 10) * unit, 4);
   const blocks = [];
   const frontY = frame.y + frame.height - aisle;
+  const entry = spaces.find((space) => space.type === "entry") || getEntrySpace(frame, program.site.entryPosition);
+  const entryCenter = centerX(entry);
+  const meeting = spaces.find((space) => space.type === "meeting_room");
+  const work = spaces.find((space) => space.type === "team_zone");
+  const visitorFlowX = meeting ? Math.min(entryCenter - aisle / 2, meeting.x + meeting.width / 2) : frame.x;
+  const visitorFlowW = meeting ? Math.abs(meeting.x + meeting.width / 2 - entryCenter) + aisle : frame.width;
   if (key === "C" || program.visitorFrequency === "high") {
     blocks.push({
       id: `${key}-visitor-flow`,
       type: "corridor",
       zone: "방문객 동선",
       name: "방문객 동선",
-      x: frame.x,
+      x: Math.max(frame.x, visitorFlowX),
       y: frontY,
-      width: frame.width,
+      width: Math.min(frame.width - Math.max(0, visitorFlowX - frame.x), visitorFlowW),
       height: aisle,
       open: true,
       reason: "입구에서 방문객존과 회의존으로 바로 연결되는 동선을 확보했습니다.",
+    });
+  }
+  if (meeting) {
+    blocks.push({
+      id: `${key}-meeting-door-flow`,
+      type: "corridor",
+      zone: "회의실 전실",
+      name: "회의실 전실",
+      x: Math.max(frame.x, meeting.x - aisle * 0.35),
+      y: Math.min(frame.y + frame.height - aisle * 2, meeting.y + meeting.height),
+      width: Math.min(frame.width - (meeting.x - frame.x), meeting.width + aisle * 0.7),
+      height: aisle,
+      open: true,
+      reason: "회의실 문 앞에서 사람이 서고 방향 전환할 수 있는 전실 동선입니다.",
     });
   }
   blocks.push({
@@ -2980,7 +3024,7 @@ function buildBlockPlanCirculation(frame, spaces, program, key, unit) {
     type: "corridor",
     zone: "직원 주동선",
     name: "직원 주동선",
-    x: frame.x + frame.width * 0.48 - aisle / 2,
+    x: work ? Math.min(Math.max(work.x + work.width * 0.5 - aisle / 2, frame.x), frame.x + frame.width - aisle) : frame.x + frame.width * 0.48 - aisle / 2,
     y: frame.y,
     width: aisle,
     height: frame.height,
@@ -3003,7 +3047,14 @@ function createBlockPlanOptionSvg(plan, program, score) {
   const background = createPlanBackground(program.floorPlan);
   const grid = createScaleGrid(plan);
   const cadShell = createCadShell(plan);
-  const rooms = plan.spaces.map((space) => createSmartSpace(space, program, plan)).join("");
+  const rooms = plan.spaces
+    .filter((space) => space.type !== "corridor")
+    .map((space) => createSmartSpace(space, program, plan))
+    .join("");
+  const corridors = plan.spaces
+    .filter((space) => space.type === "corridor")
+    .map((space) => createSmartSpace(space, program, plan))
+    .join("");
   const deskModules = plan.spaces
     .filter((space) => space.type === "team_zone")
     .map((space) => createDeskModuleLayer(space, program, plan))
@@ -3025,12 +3076,13 @@ function createBlockPlanOptionSvg(plan, program, score) {
         <rect x="2" y="2" width="96" height="68" fill="#ffffff" stroke="#111111" stroke-width="0.45"></rect>
         ${background}
         ${grid}
-        ${cadShell}
         ${createWindowMarker(plan.windowLine)}
         <circle class="diagram-plumbing" cx="${plan.plumbingPoint.x}" cy="${plan.plumbingPoint.y}" r="1.25"></circle>
         <text class="diagram-small" x="${plan.plumbingPoint.x + 1.8}" y="${plan.plumbingPoint.y + 0.7}">급배수</text>
         ${rooms}
         ${deskModules}
+        ${corridors}
+        ${cadShell}
         ${columns}
         ${arrows}
         <text class="diagram-dimension" x="5" y="68">CAD STYLE TEST FIT v1 · SCALE 1/50 · ${plan.widthM}m x ${plan.depthM}m · 예상 ${plan.capacity.visibleSeats}/${program.employeeCount}석</text>
@@ -3075,8 +3127,27 @@ function createCadOpening(space) {
     return `<path class="diagram-cad-door" d="M ${space.x} ${space.y + space.height} L ${space.x + space.width} ${space.y + space.height}"></path><text class="diagram-small" x="${space.x + space.width / 2 - 2}" y="${space.y + space.height + 2.2}">ENT</text>`;
   }
   const r = Math.min(5, Math.max(2.8, Math.min(space.width, space.height) * 0.2));
-  const hingeX = space.x + space.width;
-  const hingeY = space.y + space.height * 0.55;
+  const side = space.door || "right";
+  const hingeX = side === "left" ? space.x : side === "bottom" || side === "top" ? space.x + space.width * 0.5 : space.x + space.width;
+  const hingeY = side === "top" ? space.y : side === "bottom" ? space.y + space.height : space.y + space.height * 0.55;
+  if (side === "left") {
+    return `
+      <line class="diagram-cad-door" x1="${hingeX}" y1="${hingeY}" x2="${hingeX + r}" y2="${hingeY}"></line>
+      <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} A ${r} ${r} 0 0 0 ${hingeX + r} ${hingeY - r}"></path>
+    `;
+  }
+  if (side === "bottom") {
+    return `
+      <line class="diagram-cad-door" x1="${hingeX}" y1="${hingeY}" x2="${hingeX}" y2="${hingeY - r}"></line>
+      <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} A ${r} ${r} 0 0 1 ${hingeX + r} ${hingeY - r}"></path>
+    `;
+  }
+  if (side === "top") {
+    return `
+      <line class="diagram-cad-door" x1="${hingeX}" y1="${hingeY}" x2="${hingeX}" y2="${hingeY + r}"></line>
+      <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} A ${r} ${r} 0 0 0 ${hingeX + r} ${hingeY + r}"></path>
+    `;
+  }
   return `
     <line class="diagram-cad-door" x1="${hingeX}" y1="${hingeY}" x2="${hingeX - r}" y2="${hingeY}"></line>
     <path class="diagram-cad-swing" d="M ${hingeX} ${hingeY} A ${r} ${r} 0 0 1 ${hingeX - r} ${hingeY - r}"></path>
