@@ -1670,9 +1670,9 @@ function summarizeOfficeAreas(program, blocks, plan) {
     .reduce((sum, block) => sum + block.recommendedArea, 0);
   const shortageSeats = Math.max(program.employeeCount - plan.capacity.visibleSeats, 0);
   const shortageArea = shortageSeats * program.density.sqmPerSeat;
-  const totalArea = (workArea + meetingArea + executiveArea + supportArea + shortageArea) * (1 + program.density.buffer);
+  const totalArea = (workArea + meetingArea + executiveArea + supportArea) * (1 + program.density.buffer);
   return {
-    workArea: sqmToPyeong(workArea + shortageArea),
+    workArea: sqmToPyeong(workArea),
     meetingArea: sqmToPyeong(meetingArea),
     executiveArea: sqmToPyeong(executiveArea),
     supportArea: sqmToPyeong(supportArea),
@@ -3046,7 +3046,9 @@ function buildSmallBlockPlanOption(program, blocks, frame, unit, widthM, depthM,
   applyManualAdjustmentsToSpaces(spaces, key, frame, unit);
   const circulationSpaces = buildBlockPlanCirculation(frame, spaces, program, key, unit);
   applyManualAdjustmentsToSpaces(circulationSpaces, key, frame, unit);
-  const capacity = Math.min(program.employeeCount, spaces.filter((space) => space.type === "team_zone").reduce((sum, space) => sum + calculateCompactDeskCapacity(space, program, unit), 0));
+  const capacity = Math.min(program.employeeCount, spaces.filter((space) => space.type === "team_zone").reduce((sum, space) => {
+    return sum + Math.max(calculateCompactDeskCapacity(space, program, unit), getSmallPlanVisibleDeskCount(space, program, unit));
+  }, 0));
 
   return {
     key,
@@ -3775,7 +3777,7 @@ function getDeskItemsForSpace(space, program, plan) {
     return modules.flatMap((module, moduleIndex) => getDeskItemsForModule(module.x, module.y, metrics, `${space.id}-desk-module-${moduleIndex}`))
       .slice(0, program.employeeCount || 0);
   }
-  const deskCount = Math.min(program.employeeCount || 0, calculateCompactDeskCapacity(space, program, plan.unit));
+  const deskCount = Math.min(program.employeeCount || 0, Math.max(calculateCompactDeskCapacity(space, program, plan.unit), getSmallPlanVisibleDeskCount(space, program, plan.unit)));
   const gap = Math.max(0.08 * plan.unit, 0.35);
   const rowGap = Math.max(0.16 * plan.unit, 0.55);
   const usableX = space.x + Math.max(0.12 * plan.unit, 0.45);
@@ -3843,12 +3845,12 @@ function createEditableDeskSet(desk, plan, metrics) {
 
 function createCompactDeskLayer(space, program, plan) {
   const metrics = getDeskPlanningMetrics(program, plan.unit);
-  const deskCount = Math.min(program.employeeCount || 0, calculateCompactDeskCapacity(space, program, plan.unit));
+  const deskCount = Math.min(program.employeeCount || 0, Math.max(calculateCompactDeskCapacity(space, program, plan.unit), getSmallPlanVisibleDeskCount(space, program, plan.unit)));
   if (!deskCount) return "";
-  const gap = Math.max(0.08 * plan.unit, 0.35);
-  const rowGap = Math.max(0.16 * plan.unit, 0.55);
-  const usableX = space.x + Math.max(0.12 * plan.unit, 0.45);
-  const usableY = space.y + Math.max(0.24 * plan.unit, 0.75);
+  const gap = Math.max(0.04 * plan.unit, 0.25);
+  const rowGap = Math.max(0.08 * plan.unit, 0.3);
+  const usableX = space.x + Math.max(0.08 * plan.unit, 0.35);
+  const usableY = space.y + Math.max(0.14 * plan.unit, 0.45);
   const usableW = Math.max(0, space.width - (usableX - space.x) * 2);
   const columns = Math.max(1, Math.min(deskCount, Math.floor((usableW + gap) / Math.max(metrics.deskA + gap, 0.1))));
   const deskSets = Array.from({ length: deskCount }, (_, index) => {
@@ -3867,13 +3869,22 @@ function createCompactDeskLayer(space, program, plan) {
 
 function calculateCompactDeskCapacity(space, program, unit) {
   const metrics = getDeskPlanningMetrics(program, unit);
-  const gap = Math.max(0.08 * unit, 0.35);
-  const rowStep = metrics.deskB + metrics.backAisle * 0.7 + Math.max(0.16 * unit, 0.55);
-  const usableW = Math.max(0, space.width - Math.max(0.24 * unit, 0.9));
-  const usableH = Math.max(0, space.height - Math.max(0.34 * unit, 1.2));
+  const gap = Math.max(0.04 * unit, 0.25);
+  const rowStep = metrics.deskB + metrics.backAisle * 0.35 + Math.max(0.08 * unit, 0.3);
+  const usableW = Math.max(0, space.width - Math.max(0.16 * unit, 0.7));
+  const usableH = Math.max(0, space.height - Math.max(0.2 * unit, 0.8));
   const columns = Math.max(0, Math.floor((usableW + gap) / Math.max(metrics.deskA + gap, 0.1)));
   const rows = Math.max(0, Math.floor(usableH / Math.max(rowStep, 0.1)));
   return columns * rows;
+}
+
+function getSmallPlanVisibleDeskCount(space, program, unit) {
+  const planAreaSqm = (normalizePlanDimension(program.floorPlan?.width) || 0) * (normalizePlanDimension(program.floorPlan?.depth) || 0);
+  if (planAreaSqm > 30) return 0;
+  const metrics = getDeskPlanningMetrics(program, unit);
+  const minDeskFootprint = Math.max(metrics.deskA * metrics.deskB, 0.1);
+  const availableDeskFootprint = Math.max(space.width * space.height * 0.42, 0);
+  return Math.min(program.employeeCount || 0, Math.max(0, Math.floor(availableDeskFootprint / minDeskFootprint)));
 }
 
 function applyAdjustmentToPseudoSpace(space, plan) {
