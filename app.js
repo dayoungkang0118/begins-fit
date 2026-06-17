@@ -628,6 +628,12 @@ function normalizeDeskSize(value) {
   return "1400x700";
 }
 
+function normalizePlanDimension(value) {
+  const number = Number(value) || 0;
+  if (!number) return 0;
+  return number > 100 ? Math.round((number / 1000) * 10) / 10 : number;
+}
+
 function renderFitCalculation() {
   const result = calculateFitPlan();
   $("#fitTotalArea").textContent = `약 ${result.rangeLow}~${result.rangeHigh}평`;
@@ -652,8 +658,8 @@ function calculateFitPlan() {
   const pantry = pantryCriteria[$("#fitPantry").value] || pantryCriteria.standard;
   const storage = storageCriteria[$("#fitStorage").value] || storageCriteria.medium;
   const propertyArea = Number($("#fitPropertyArea").value) || 0;
-  const planWidth = Number($("#fitPlanWidth").value) || 0;
-  const planDepth = Number($("#fitPlanDepth").value) || 0;
+  const planWidth = normalizePlanDimension($("#fitPlanWidth").value);
+  const planDepth = normalizePlanDimension($("#fitPlanDepth").value);
   const usageTypes = $$("input[name='fitUsage']:checked").map((input) => input.value);
   const designChecks = $$("input[name='designChecks']:checked").map((input) => input.value);
   const baseResultForLayout = {
@@ -1405,8 +1411,8 @@ function buildOfficeProgram() {
     designChecks,
     floorPlan: {
       ...state.fitFloorPlan,
-      width: Number($("#fitPlanWidth").value) || 0,
-      depth: Number($("#fitPlanDepth").value) || 0,
+      width: normalizePlanDimension($("#fitPlanWidth").value),
+      depth: normalizePlanDimension($("#fitPlanDepth").value),
     },
   };
 }
@@ -2010,8 +2016,8 @@ function buildOfficeProgram() {
     },
     floorPlan: {
       ...state.fitFloorPlan,
-      width: Number($("#fitPlanWidth").value) || 0,
-      depth: Number($("#fitPlanDepth").value) || 0,
+      width: normalizePlanDimension($("#fitPlanWidth").value),
+      depth: normalizePlanDimension($("#fitPlanDepth").value),
     },
   };
 }
@@ -2450,8 +2456,8 @@ function createColumnMarkers(frame, count) {
 }
 
 function generateOfficeLayout(program, blocks) {
-  const widthM = Number(program.floorPlan?.width) || 18;
-  const depthM = Number(program.floorPlan?.depth) || 12;
+  const widthM = normalizePlanDimension(program.floorPlan?.width) || 18;
+  const depthM = normalizePlanDimension(program.floorPlan?.depth) || 12;
   const ratio = widthM / depthM;
   const frame = getPlanFrameByRatio(ratio);
   const visitorHeavy = program.visitorFrequency === "high" || program.layoutType === "visitor_heavy";
@@ -2810,8 +2816,8 @@ function createSupportFurniture(space, plan) {
 
 function calculateScaledSeatCapacity(space, program, planOrFrame) {
   const frame = planOrFrame.frame ? planOrFrame.frame : planOrFrame;
-  const widthM = Number(program.floorPlan?.width) || 18;
-  const depthM = Number(program.floorPlan?.depth) || 12;
+  const widthM = normalizePlanDimension(program.floorPlan?.width) || 18;
+  const depthM = normalizePlanDimension(program.floorPlan?.depth) || 12;
   const unit = planOrFrame.unit || getPlanUnit(frame, widthM, depthM);
   const desk = getDeskMetric(program);
   const deskW = desk.widthM * unit;
@@ -2845,8 +2851,8 @@ function parseMetricLabel(label) {
 }
 
 function generateOfficeLayout(program, blocks) {
-  const widthM = Number(program.floorPlan?.width) || 18;
-  const depthM = Number(program.floorPlan?.depth) || 12;
+  const widthM = normalizePlanDimension(program.floorPlan?.width) || 18;
+  const depthM = normalizePlanDimension(program.floorPlan?.depth) || 12;
   const frame = getPlanFrameByRatio(widthM / depthM);
   const unit = getPlanUnit(frame, widthM, depthM);
   const options = [
@@ -2890,6 +2896,10 @@ function buildBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key)
   const lowerLimitY = frame.y + frame.height - entryBuffer;
   const staffAisleX = frame.x + frame.width * 0.5 - mainAisle / 2;
   const clampValue = (value, min, max) => Math.min(Math.max(value, min), max);
+
+  if (widthM * depthM <= 30 || widthM < 6 || depthM < 6) {
+    return buildSmallBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key, optionName, optionReason, entry, plumbingPoint, windowLine, columns);
+  }
 
   spaces.push({
     ...entry,
@@ -2982,6 +2992,74 @@ function buildBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key)
     },
     mainAisle: circulationSpaces.find((space) => space.id.includes("staff")) || circulationSpaces[0],
     visitorPath: key === "C" || visitorHeavy,
+    windowLine,
+    plumbingPoint,
+    columns,
+    unit,
+    widthM,
+    depthM,
+  };
+}
+
+function buildSmallBlockPlanOption(program, blocks, frame, unit, widthM, depthM, key, optionName, optionReason, entry, plumbingPoint, windowLine, columns) {
+  const m = (value) => value * unit;
+  const spaces = [];
+  const entryH = Math.max(m(0.45), 4);
+  const serviceH = Math.min(Math.max(m(0.75), 6), frame.height * 0.18);
+  const upperH = Math.min(Math.max(m(1.05), 8), frame.height * 0.24);
+  const workY = frame.y + upperH;
+  const workH = Math.max(m(1.6), frame.height - upperH - serviceH - entryH);
+  const meetingW = program.meetingRooms?.some((room) => room.count > 0) ? frame.width * 0.46 : 0;
+  const ceoW = program.needsCeoRoom ? frame.width - meetingW : 0;
+  const pantryW = Math.min(frame.width * 0.42, Math.max(m(0.9), 6));
+
+  spaces.push({
+    ...entry,
+    id: `${key}-entry`,
+    type: "entry",
+    zone: "입구존",
+    name: "입구",
+    y: frame.y + frame.height - entryH,
+    height: entryH,
+    open: true,
+    reason: "소형 평면이라 출입구 전면의 최소 진입 여유만 확보했습니다.",
+  });
+
+  if (meetingW > 0) {
+    const meetingBlock = blocks.find((block) => block.type === "meeting_room");
+    spaces.push(createZone(`${key}-meeting`, "meeting_room", "회의존", meetingBlock?.name || "소회의", frame.x, frame.y, meetingW, upperH, "소형 평면에서는 회의공간을 독립실이 아닌 최소 블럭으로 먼저 검토합니다.", { door: "bottom-center", closed: true }));
+  }
+
+  if (program.needsCeoRoom) {
+    spaces.push(createZone(`${key}-ceo`, "ceo_room", "임원존", "대표실", frame.x + meetingW, frame.y, Math.max(0, frame.width - meetingW), upperH, "소형 평면에서는 대표실도 최소 독립 블럭으로 표시해 면적 가능성을 검토합니다.", { door: "bottom-center", closed: true }));
+  }
+
+  spaces.push(createZone(`${key}-work`, "team_zone", "업무존", `업무존 ${program.employeeCount}석`, frame.x, workY, frame.width, workH, "가장 큰 연속 면적을 업무존으로 두고, 가능한 책상 수를 실제 스케일로 다시 계산합니다."));
+
+  spaces.push(createZone(`${key}-pantry`, "pantry", "탕비존", "탕비", frame.x + frame.width - pantryW, frame.y + frame.height - entryH - serviceH, pantryW, serviceH, "급배수와 가까운 하단 서비스 라인에 최소 탕비 블럭을 표시했습니다.", { door: "top-center", closed: program.pantryStyle === "closed" }));
+
+  if (program.needsStorage) {
+    spaces.push(createZone(`${key}-storage`, "storage", "창고", "창고", frame.x, frame.y + frame.height - entryH - serviceH, Math.max(m(0.8), 5), serviceH, "소형 평면에서는 창고를 하부 서비스 밴드에 최소 깊이로 배치합니다."));
+  }
+
+  appendManualAddedSpaces(spaces, key, frame, unit);
+  applyManualAdjustmentsToSpaces(spaces, key, frame, unit);
+  const circulationSpaces = buildBlockPlanCirculation(frame, spaces, program, key, unit);
+  applyManualAdjustmentsToSpaces(circulationSpaces, key, frame, unit);
+  const capacity = Math.min(program.employeeCount, spaces.filter((space) => space.type === "team_zone").reduce((sum, space) => sum + calculateCompactDeskCapacity(space, program, unit), 0));
+
+  return {
+    key,
+    name: optionName,
+    reason: `${optionReason} 소형 평면이라 실별 최소 블럭과 실제 배치 가능한 좌석을 우선 표시했습니다.`,
+    frame,
+    spaces: [...spaces, ...circulationSpaces],
+    capacity: {
+      ...getDeskLayoutCapacity({ seats: program.employeeCount, maxWidth: frame.width, maxHeight: frame.height, compact: true }),
+      visibleSeats: capacity,
+    },
+    mainAisle: circulationSpaces.find((space) => space.id.includes("staff")) || circulationSpaces[0],
+    visitorPath: false,
     windowLine,
     plumbingPoint,
     columns,
@@ -3656,7 +3734,9 @@ function calculateDeskModuleCapacity(space, program, unit) {
 function createDeskModuleLayer(space, program, plan) {
   const metrics = getDeskPlanningMetrics(program, plan.unit);
   const moduleRects = getDeskModuleFramesForSpace(space, program, plan);
-  const modules = moduleRects.map((module) => createDeskPlanningModule(module.x, module.y, metrics, plan, module.id)).join("");
+  const modules = moduleRects.length
+    ? moduleRects.map((module, index) => createDeskPlanningModule(module.x, module.y, metrics, plan, module.id, Math.max(0, (program.employeeCount || 0) - index * 4))).join("")
+    : createCompactDeskLayer(space, program, plan);
   const info = `${metrics.desk.label} · 뒤 ${program.deskBackAisleMm || 1000} · 옆 ${program.deskSideAisleMm || 1000}`;
   return `
     ${modules}
@@ -3690,7 +3770,29 @@ function getDeskModuleFramesForSpace(space, program, plan) {
 
 function getDeskItemsForSpace(space, program, plan) {
   const metrics = getDeskPlanningMetrics(program, plan.unit);
-  return getDeskModuleFramesForSpace(space, program, plan).flatMap((module, moduleIndex) => getDeskItemsForModule(module.x, module.y, metrics, `${space.id}-desk-module-${moduleIndex}`));
+  const modules = getDeskModuleFramesForSpace(space, program, plan);
+  if (modules.length) {
+    return modules.flatMap((module, moduleIndex) => getDeskItemsForModule(module.x, module.y, metrics, `${space.id}-desk-module-${moduleIndex}`))
+      .slice(0, program.employeeCount || 0);
+  }
+  const deskCount = Math.min(program.employeeCount || 0, calculateCompactDeskCapacity(space, program, plan.unit));
+  const gap = Math.max(0.08 * plan.unit, 0.35);
+  const rowGap = Math.max(0.16 * plan.unit, 0.55);
+  const usableX = space.x + Math.max(0.12 * plan.unit, 0.45);
+  const usableY = space.y + Math.max(0.24 * plan.unit, 0.75);
+  const usableW = Math.max(0, space.width - (usableX - space.x) * 2);
+  const columns = Math.max(1, Math.min(deskCount, Math.floor((usableW + gap) / Math.max(metrics.deskA + gap, 0.1))));
+  return Array.from({ length: deskCount }, (_, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    return {
+      id: `${space.id}-compact-desk-${index + 1}`,
+      x: usableX + col * (metrics.deskA + gap),
+      y: usableY + row * (metrics.deskB + metrics.backAisle * 0.7 + rowGap),
+      width: metrics.deskA,
+      height: metrics.deskB,
+    };
+  });
 }
 
 function getDeskItemsForModule(x, y, metrics, idPrefix) {
@@ -3705,11 +3807,11 @@ function getDeskItemsForModule(x, y, metrics, idPrefix) {
   ];
 }
 
-function createDeskPlanningModule(x, y, metrics, plan, moduleId) {
+function createDeskPlanningModule(x, y, metrics, plan, moduleId, maxDeskCount = 4) {
   const { deskA, deskB, moduleW, moduleH, backAisle } = metrics;
   const topDeskY = y + backAisle;
   const bottomDeskY = topDeskY + deskB;
-  const desks = getDeskItemsForModule(x, y, metrics, moduleId);
+  const desks = getDeskItemsForModule(x, y, metrics, moduleId).slice(0, Math.max(0, Math.min(maxDeskCount, 4)));
   const deskSets = desks.map((desk) => createEditableDeskSet(desk, plan, metrics)).join("");
   return `
     <rect class="diagram-desk-module" x="${x}" y="${y}" width="${moduleW}" height="${moduleH}"></rect>
@@ -3737,6 +3839,41 @@ function createEditableDeskSet(desk, plan, metrics) {
       <circle class="diagram-chair" cx="${adjusted.x + adjusted.width * 0.5}" cy="${chairCy}" r="${chairR}"></circle>
     </g>
   `;
+}
+
+function createCompactDeskLayer(space, program, plan) {
+  const metrics = getDeskPlanningMetrics(program, plan.unit);
+  const deskCount = Math.min(program.employeeCount || 0, calculateCompactDeskCapacity(space, program, plan.unit));
+  if (!deskCount) return "";
+  const gap = Math.max(0.08 * plan.unit, 0.35);
+  const rowGap = Math.max(0.16 * plan.unit, 0.55);
+  const usableX = space.x + Math.max(0.12 * plan.unit, 0.45);
+  const usableY = space.y + Math.max(0.24 * plan.unit, 0.75);
+  const usableW = Math.max(0, space.width - (usableX - space.x) * 2);
+  const columns = Math.max(1, Math.min(deskCount, Math.floor((usableW + gap) / Math.max(metrics.deskA + gap, 0.1))));
+  const deskSets = Array.from({ length: deskCount }, (_, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    return createEditableDeskSet({
+      id: `${space.id}-compact-desk-${index + 1}`,
+      x: usableX + col * (metrics.deskA + gap),
+      y: usableY + row * (metrics.deskB + metrics.backAisle * 0.7 + rowGap),
+      width: metrics.deskA,
+      height: metrics.deskB,
+    }, plan, metrics);
+  }).join("");
+  return deskSets;
+}
+
+function calculateCompactDeskCapacity(space, program, unit) {
+  const metrics = getDeskPlanningMetrics(program, unit);
+  const gap = Math.max(0.08 * unit, 0.35);
+  const rowStep = metrics.deskB + metrics.backAisle * 0.7 + Math.max(0.16 * unit, 0.55);
+  const usableW = Math.max(0, space.width - Math.max(0.24 * unit, 0.9));
+  const usableH = Math.max(0, space.height - Math.max(0.34 * unit, 1.2));
+  const columns = Math.max(0, Math.floor((usableW + gap) / Math.max(metrics.deskA + gap, 0.1)));
+  const rows = Math.max(0, Math.floor(usableH / Math.max(rowStep, 0.1)));
+  return columns * rows;
 }
 
 function applyAdjustmentToPseudoSpace(space, plan) {
