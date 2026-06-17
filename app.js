@@ -3569,6 +3569,19 @@ function renderAll() {
   renderRequests();
 }
 
+function initPageMode() {
+  const defaultView = window.BEGINS_DEFAULT_VIEW;
+  if (!defaultView) return;
+  if (defaultView === "admin" && state.isAdmin) {
+    activateView("admin");
+    return;
+  }
+  if (defaultView === "admin") {
+    openLoginModal();
+    showToast("내부 화면은 관리자 로그인이 필요합니다.");
+  }
+}
+
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, "&amp;")
@@ -3585,3 +3598,4 @@ initRequestForm();
 initSeedButton();
 initFitCalculator();
 renderAll();
+initPageMode();

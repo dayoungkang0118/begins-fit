@@ -3,10 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>비긴핏 | 테스트핏 신청 시스템</title>
+    <title>비긴핏 | 내부 테스트핏</title>
     <link rel="stylesheet" href="styles.css" />
     <style>
-      .fit-calculator-panel {
+      .dashboard-grid,
+      .request-management-panel {
         display: none;
       }
     </style>
@@ -652,7 +653,10 @@
     </div>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script>
+      window.BEGINS_DEFAULT_VIEW = "admin";
+    </script>
     <script src="app.js"></script>
   </body>
 </html>
-<!-- deployment: request-admin-fit-split-v11 -->
+<!-- deployment: request-admin-fit-split-v11-fit -->
